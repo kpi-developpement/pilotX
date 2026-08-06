@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # L'port dyal Next.js
-EXPOSE 2227
+EXPOSE 3000
 
 # Lancer l'app
 CMD ["npm", "start"]
