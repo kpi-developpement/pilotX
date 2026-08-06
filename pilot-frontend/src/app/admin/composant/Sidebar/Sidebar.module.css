@@ -1,0 +1,153 @@
+.sidebar {
+  width: 90px; /* L'etat initial sghir */
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(40px);
+  border-right: 1px solid rgba(255, 255, 255, 0.6);
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  z-index: 100;
+  box-shadow: 10px 0 30px rgba(0,0,0,0);
+}
+
+/* L'Hover effect x100 */
+.sidebar:hover {
+  width: 280px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 10px 0 40px rgba(15, 23, 42, 0.05);
+}
+
+.brand {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  padding: 0 22px; /* Bach yjik f centre dyal 90px */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  min-width: 280px;
+}
+
+.logoBox {
+  min-width: 45px;
+  height: 45px;
+  background: linear-gradient(135deg, #0f172a, #334155);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2);
+}
+
+.brandText {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-left: 15px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  transform: translateX(-10px);
+}
+
+.sidebar:hover .brandText {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: 0.1s;
+}
+
+.nav {
+  padding: 30px 15px;
+  flex: 1;
+}
+
+.menuList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  padding: 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  color: #64748b;
+  position: relative;
+  transition: all 0.3s ease;
+  min-width: 250px;
+}
+
+.icon {
+  min-width: 24px;
+  display: flex;
+  justify-content: center;
+  margin-left: 5px;
+}
+
+.menuText {
+  margin-left: 20px;
+  font-weight: 600;
+  opacity: 0;
+  transition: all 0.3s ease;
+  transform: translateX(-10px);
+}
+
+.sidebar:hover .menuText {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+
+.active {
+  background: #0f172a;
+  color: white;
+  box-shadow: 0 8px 25px rgba(15, 23, 42, 0.2);
+}
+
+.active:hover {
+  background: #1e293b;
+  color: white;
+}
+
+.profile {
+  padding: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  min-width: 280px;
+}
+
+.avatar {
+  min-width: 45px;
+  height: 45px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+}
+
+.adminInfo {
+  margin-left: 15px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar:hover .adminInfo {
+  opacity: 1;
+}
+
+.adminInfo h4 { color: #0f172a; font-size: 0.95rem; font-weight: 700; }
+.adminInfo p { color: #64748b; font-size: 0.8rem; }

@@ -1,0 +1,97 @@
+/* -- ETAT INITIAL (Luxe, Clean, White) -- */
+.btn {
+  position: relative;
+  width: 100%;
+  padding: 18px 25px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 
+    4px 4px 10px rgba(0, 0, 0, 0.03),
+    -4px -4px 10px rgba(255, 255, 255, 0.8);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Transformer bounce */
+  z-index: 1;
+}
+
+.btnContent {
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+.glowEffect {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.5s ease;
+  z-index: 0;
+  border-radius: 50%;
+}
+
+/* -- ETAT HOVER (Kaytbdl chkel w loun kay-popi) -- */
+.btn:hover {
+  transform: translateY(-5px) scale(1.02);
+  color: white;
+  border-color: transparent;
+}
+
+.btn:hover .glowEffect {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.working:hover {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.5);
+}
+
+.pause_10min:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.5);
+}
+
+.pause_1h:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 10px 20px -5px rgba(239, 68, 68, 0.5);
+}
+
+.toilet:hover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.5);
+}
+
+/* -- ETAT CLICK / ACTIVE (Kaydkhel l'dakhel) -- */
+.btn:active, .activeStatus {
+  transform: translateY(2px) scale(0.98) !important;
+  color: white !important;
+  border: none;
+}
+
+.working:active, .activeStatus.working {
+  background: #047857 !important;
+  box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+.pause_10min:active, .activeStatus.pause_10min {
+  background: #b45309 !important;
+  box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+.pause_1h:active, .activeStatus.pause_1h {
+  background: #b91c1c !important;
+  box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+.toilet:active, .activeStatus.toilet {
+  background: #1d4ed8 !important;
+  box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
+}

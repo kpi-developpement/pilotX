@@ -1,0 +1,127 @@
+/* -- BACKGROUND LUXE -- */
+.layout {
+  position: relative;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  overflow: hidden;
+}
+.autoBlob {
+  position: fixed;
+  top: -10%;
+  right: -5%;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: floatAdmin 15s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+@keyframes floatAdmin {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-400px, 200px) scale(1.3); }
+}
+
+.mouseBlob {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  transition: transform 0.6s cubic-bezier(0.1, 0.8, 0.2, 1);
+  z-index: 0;
+}
+
+.glassOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(40px);
+  z-index: 1;
+}
+
+/* -- LAYOUT FOREGROUND -- */
+.contentWrapper {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  height: 100vh;
+}
+
+.mainContent {
+  /* HNA LI TBEDEL: margin-left welat 90px (width dyal sidebar masdoud) */
+  margin-left: 90px;
+  flex: 1;
+  padding: 45px 50px;
+  height: 100vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+/* Custom Scrollbar bach tban n9iya */
+.mainContent::-webkit-scrollbar { width: 6px; }
+.mainContent::-webkit-scrollbar-track { background: transparent; }
+.mainContent::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.1); border-radius: 10px; }
+
+.dashboardContainer {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 30px;
+  padding-bottom: 50px;
+}
+
+.dashboardContainer {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+
+
+.cardWrapper {
+  animation: slideUpAdmin 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  perspective: 1000px; /* Khassa l 3D child */
+}
+
+.cardWrapper:nth-child(2) { animation-delay: 0.1s; }
+.cardWrapper:nth-child(3) { animation-delay: 0.2s; }
+.cardWrapper:nth-child(4) { animation-delay: 0.3s; }
+.cardWrapper:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes slideUpAdmin {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.emptyState {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 80px;
+  color: #64748b;
+  font-size: 1.2rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.emptyGlow {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px; height: 200px;
+  background: rgba(59, 130, 246, 0.2);
+  filter: blur(40px);
+  border-radius: 50%;
+}

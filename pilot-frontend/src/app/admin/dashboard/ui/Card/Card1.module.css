@@ -1,0 +1,63 @@
+.card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  padding: 30px;
+  backdrop-filter: blur(25px);
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: crosshair; /* Luxe feel */
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+}
+
+/* Chou3a3 (Glass Glare Effect x100) */
+.glare {
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+  mix-blend-mode: overlay;
+}
+
+.glowBg {
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: radial-gradient(circle, var(--glow-color, transparent) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 0;
+}
+
+.card:hover .glowBg { opacity: 0.12; }
+.cardContent { position: relative; z-index: 10; transform: translateZ(40px); }
+
+/* ... Khli Avatar, StatusIndicator, Ping kima kano ... */
+.cardTop { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; }
+.avatar { width: 55px; height: 55px; border-radius: 16px; background: rgba(255, 255, 255, 0.8); color: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+.statusIndicator { width: 14px; height: 14px; border-radius: 50%; position: relative; }
+.ping { position: absolute; inset: 0; border-radius: 50%; background-color: var(--status-color); box-shadow: 0 0 20px var(--status-color); animation: pulseCard 2s infinite; }
+@keyframes pulseCard { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
+
+.name { font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-bottom: 12px; letter-spacing: -0.5px; }
+.badge { display: inline-block; padding: 8px 16px; border-radius: 12px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; background: var(--status-bg); color: var(--status-color); box-shadow: 0 4px 15px var(--status-shadow); }
+
+.cardFooter { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.8rem; font-weight: 600; color: #64748b; padding-top: 20px; border-top: 1px solid rgba(15, 23, 42, 0.05); }
+.footerItem { display: flex; align-items: center; gap: 6px; }
+
+/* SVG Icons Styles */
+.footerItem svg, .pausePill svg { opacity: 0.8; }
+
+.pausePill { display: flex; align-items: center; gap: 5px; background: rgba(255, 255, 255, 0.8); padding: 6px 12px; border-radius: 12px; color: #475569; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+.pausePill strong { color: #0f172a; font-weight: 800; }
+
+/* Status Colors */
+.statusWorking { --status-color: #059669; --status-bg: rgba(209, 250, 229, 0.8); --status-shadow: rgba(16, 185, 129, 0.2); --glow-color: #10b981; }
+.statusPause10 { --status-color: #d97706; --status-bg: rgba(254, 243, 199, 0.8); --status-shadow: rgba(245, 158, 11, 0.2); --glow-color: #f59e0b; }
+.statusPause1h { --status-color: #dc2626; --status-bg: rgba(254, 226, 226, 0.8); --status-shadow: rgba(239, 68, 68, 0.2); --glow-color: #ef4444; }
+.statusToilet { --status-color: #2563eb; --status-bg: rgba(219, 234, 254, 0.8); --status-shadow: rgba(59, 130, 246, 0.2); --glow-color: #3b82f6; }

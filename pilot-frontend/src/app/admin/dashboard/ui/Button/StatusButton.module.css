@@ -1,0 +1,25 @@
+.btn {
+  width: 100%;
+  padding: 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.working { background-color: #22c55e; }
+.pause_10min { background-color: #f59e0b; }
+.pause_1h { background-color: #ef4444; }
+.toilet { background-color: #3b82f6; }
