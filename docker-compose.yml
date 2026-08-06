@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: pilot_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password_dyalk
+      POSTGRES_DB: pilotdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - pilot-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pilot_backend
+    restart: always
+    ports:
+      - "6225:6225"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/pilotdb
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password_dyalk
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    depends_on:
+      - db
+    networks:
+      - pilot-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pilot_frontend
+    restart: always
+    ports:
+      # L'port 2227 dyalk -> ki-pointi 3la port 3000 l'dakhel dyal container fin Next.js kikhdem
+      - "2227:3000" 
+    environment:
+      # Hna kan3tiw l'frontend l'URL dyal l'backend mli ykoun hosted
+      - NEXT_PUBLIC_API_URL=http://localhost:6225
+      - NEXT_PUBLIC_WS_URL=http://localhost:6225/ws
+    depends_on:
+      - backend
+    networks:
+      - pilot-network
+
+volumes:
+  pgdata:
+
+networks:
+  pilot-network:
+    driver: bridge
