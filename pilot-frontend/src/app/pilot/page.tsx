@@ -11,6 +11,7 @@ interface PilotData {
   status: string;
 }
 
+// Hna s-ser: kanjibou l'URL mn Docker (awla kan3tiwh l'IP dyal l'serveur par defaut)
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
 
 export default function PilotDashboard() {
@@ -18,6 +19,7 @@ export default function PilotDashboard() {
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
   
+  // Refs l 3D Effect w mouse tracking
   const cardRef = useRef<HTMLDivElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
@@ -27,6 +29,7 @@ export default function PilotDashboard() {
     else router.push('/pilot/login');
   }, [router]);
 
+  // L'animation dyal l'background (Blob li kitbe3 souris)
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
@@ -35,16 +38,19 @@ export default function PilotDashboard() {
     return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
   }, []);
 
+  // L'animation 3D dyal l'Card mli dwz 3liha souris
   const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
     const card = cardRef.current;
     const rect = card.getBoundingClientRect();
     
+    // N7esbo centre dyal l'carte
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
+    // Calcul dyal rotation (max 15 degres)
     const rotateX = ((y - centerY) / centerY) * -15;
     const rotateY = ((x - centerX) / centerX) * 15;
 
@@ -53,6 +59,7 @@ export default function PilotDashboard() {
 
   const handleCardMouseLeave = () => {
     if (!cardRef.current) return;
+    // T-récupérer blast-ha b smooth mli t7yed l'souris
     cardRef.current.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
   };
 
@@ -60,6 +67,7 @@ export default function PilotDashboard() {
     if (!pilot) return;
     setLoading(true);
     try {
+      // Db kat-tiri f l'serveur machi f localhost!
       const response = await fetch(`${API_URL}/api/v1/pilots/${pilot.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -85,6 +93,7 @@ export default function PilotDashboard() {
 
   return (
     <div className={styles.container}>
+      {/* Background Interactive Elements */}
       <div className={styles.autoBlob}></div>
       <div 
         className={styles.mouseBlob} 
@@ -94,6 +103,7 @@ export default function PilotDashboard() {
       ></div>
       <div className={styles.glassOverlay}></div>
 
+      {/* 3D Dashboard Card */}
       <div className={styles.cardContainer}>
         <div 
           ref={cardRef}
@@ -116,7 +126,7 @@ export default function PilotDashboard() {
             <StatusButton isActive={pilot.status === 'PAUSE_10MIN'} label="Short Break" type="PAUSE_10MIN" onClick={() => updateStatus('PAUSE_10MIN')} />
             <StatusButton isActive={pilot.status === 'PAUSE_1H'} label="Long Break" type="PAUSE_1H" onClick={() => updateStatus('PAUSE_1H')} />
             <StatusButton isActive={pilot.status === 'TOILET'} label="Restroom" type="TOILET" onClick={() => updateStatus('TOILET')} />
-            {/* BOUTON DYAL SALAT ZDNAH HNA */}
+            {/* L'BOUTON JDIDA DYAL S-SALA ZDNAHA HNA */}
             <StatusButton isActive={pilot.status === 'PRAYER'} label="Prayer Break" type="PRAYER" onClick={() => updateStatus('PRAYER')} />
           </div>
           
