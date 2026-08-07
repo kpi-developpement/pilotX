@@ -69,6 +69,11 @@
   box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.5);
 }
 
+.prayer:hover {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 10px 20px -5px rgba(139, 92, 246, 0.5);
+}
+
 /* -- ETAT CLICK / ACTIVE (Kaydkhel l'dakhel) -- */
 .btn:active, .activeStatus {
   transform: translateY(2px) scale(0.98) !important;
@@ -93,5 +98,10 @@
 
 .toilet:active, .activeStatus.toilet {
   background: #1d4ed8 !important;
+  box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+.prayer:active, .activeStatus.prayer {
+  background: #6d28d9 !important;
   box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
 }

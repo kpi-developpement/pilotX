@@ -3,7 +3,7 @@ import styles from './StatusButton.module.css';
 
 interface ButtonProps {
   label: string;
-  type: 'WORKING' | 'PAUSE_10MIN' | 'PAUSE_1H' | 'TOILET';
+  type: 'WORKING' | 'PAUSE_10MIN' | 'PAUSE_1H' | 'TOILET' | 'PRAYER';
   isActive: boolean;
   onClick: () => void;
 }
