@@ -1,13 +1,12 @@
 package com.org.pilot.service;
 
-import com.org.pilot.dto.PilotDto;
-import com.org.pilot.dto.PilotStatusUpdateRequest;
-import com.org.pilot.dto.PilotRegisterRequest;
-import com.org.pilot.dto.PilotLoginRequest;
+import com.org.pilot.dto.*;
 import com.org.pilot.exception.ResourceNotFoundException;
 import com.org.pilot.model.Pilot;
 import com.org.pilot.model.PilotStatus;
+import com.org.pilot.model.PilotStatusLog;
 import com.org.pilot.repository.PilotRepository;
+import com.org.pilot.repository.PilotStatusLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +24,7 @@ import java.util.stream.Collectors;
 public class PilotServiceImpl implements PilotService {
 
     private final PilotRepository pilotRepository;
+    private final PilotStatusLogRepository logRepository; // Zdnaha hna
     private final SimpMessagingTemplate messagingTemplate;
     private final PasswordEncoder passwordEncoder;
 
@@ -40,6 +40,20 @@ public class PilotServiceImpl implements PilotService {
         Pilot pilot = pilotRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
         return mapToDto(pilot);
+    }
+
+    // Had l'methode jdida bach l'admin yjbed les logs m-détayéyin
+    @Override
+    public List<PilotLogDto> getPilotLogs(Long pilotId) {
+        return logRepository.findByPilotIdOrderByStartTimeDesc(pilotId).stream()
+                .map(log -> PilotLogDto.builder()
+                        .id(log.getId())
+                        .status(log.getStatus())
+                        .startTime(log.getStartTime())
+                        .endTime(log.getEndTime())
+                        .durationSeconds(log.getDurationSeconds())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -85,7 +99,6 @@ public class PilotServiceImpl implements PilotService {
                 .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
 
         LocalDate today = LocalDate.now();
-        // Reset l'compteur dyal l'we9t ila dkhlna f nhar jdid
         if (pilot.getLastActiveDate() == null || !pilot.getLastActiveDate().isEqual(today)) {
             pilot.setDailyPauseTime(0L);
             pilot.setLastActiveDate(today);
@@ -95,15 +108,25 @@ public class PilotServiceImpl implements PilotService {
         PilotStatus oldStatus = pilot.getStatus();
         PilotStatus newStatus = request.getStatus();
 
-        // Ila kan f pause (ay no3) w bedel l'status dyalo (l WORKING wla pause khra)
+        // Ila kan f pause (ay no3) w bedel l'status jdid, nsajlou l'historique dyal dik pause!
         if (oldStatus != PilotStatus.WORKING && oldStatus != null && pilot.getPauseStartTime() != null) {
             long secondsPassed = Duration.between(pilot.getPauseStartTime(), LocalDateTime.now()).getSeconds();
             long currentTotal = pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L;
             pilot.setDailyPauseTime(currentTotal + secondsPassed);
+
+            // Hna l'ajout jdid: Kan-sauvegardew log kamel f l'DB!
+            PilotStatusLog log = PilotStatusLog.builder()
+                    .pilot(pilot)
+                    .status(oldStatus)
+                    .startTime(pilot.getPauseStartTime())
+                    .endTime(LocalDateTime.now())
+                    .durationSeconds(secondsPassed)
+                    .build();
+            logRepository.save(log);
+
             pilot.setPauseStartTime(null);
         }
 
-        // Ila l'status jdid houwa pause, n-markiw l'we9t dyal l'bidaya
         if (newStatus != PilotStatus.WORKING) {
             pilot.setPauseStartTime(LocalDateTime.now());
         }

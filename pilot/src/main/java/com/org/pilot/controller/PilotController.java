@@ -1,9 +1,6 @@
 package com.org.pilot.controller;
 
-import com.org.pilot.dto.PilotDto;
-import com.org.pilot.dto.PilotStatusUpdateRequest;
-import com.org.pilot.dto.PilotRegisterRequest;
-import com.org.pilot.dto.PilotLoginRequest;
+import com.org.pilot.dto.*;
 import com.org.pilot.service.PilotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,7 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/pilots")
-@CrossOrigin(originPatterns = "*") // HNA L'FIX ABROSKY
+@CrossOrigin(originPatterns = "*")
 @RequiredArgsConstructor
 public class PilotController {
 
@@ -23,6 +20,12 @@ public class PilotController {
     @GetMapping
     public ResponseEntity<List<PilotDto>> getAllPilots() {
         return ResponseEntity.ok(pilotService.getAllPilots());
+    }
+
+    // --- L'ENDPOINT JDID DYAL L'ADMIN ---
+    @GetMapping("/{id}/logs")
+    public ResponseEntity<List<PilotLogDto>> getPilotLogs(@PathVariable Long id) {
+        return ResponseEntity.ok(pilotService.getPilotLogs(id));
     }
 
     @PostMapping("/register")
