@@ -11,6 +11,9 @@ interface PilotData {
   status: string;
 }
 
+// Hna s-ser: kanjibou l'URL mn Docker (awla kan3tiwh l'IP dyal l'serveur par defaut)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
+
 export default function PilotDashboard() {
   const [pilot, setPilot] = useState<PilotData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -64,7 +67,8 @@ export default function PilotDashboard() {
     if (!pilot) return;
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:6225/api/v1/pilots/${pilot.id}/status`, {
+      // Db kat-tiri f l'serveur machi f localhost!
+      const response = await fetch(`${API_URL}/api/v1/pilots/${pilot.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
