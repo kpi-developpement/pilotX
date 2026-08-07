@@ -179,7 +179,7 @@
 
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr); /* Reddinaha 2 bach yjmo 4 dyal boxes zwinin (2 lfo9 w 2 lte7t) */
   gap: 16px;
   margin: 20px 0;
 }

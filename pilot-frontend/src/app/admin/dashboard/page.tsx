@@ -30,13 +30,11 @@ export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
-  // States dyal l'Modal w l'Edit
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [pilotLogs, setPilotLogs] = useState<PilotLog[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  // State dyal l'Formulaire dyal l'Update
   const [editForm, setEditForm] = useState({ name: '', username: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -87,8 +85,8 @@ export default function AdminDashboard() {
 
   const openPilotDetails = async (pilot: Pilot) => {
     setSelectedPilot(pilot);
-    setIsEditing(false); // Dima n-bdaw b l'historique
-    setEditForm({ name: pilot.name, username: '', password: '' }); // Username w password khawyin bach nbdlouhom gha ila bghina
+    setIsEditing(false); 
+    setEditForm({ name: pilot.name, username: '', password: '' }); 
     setIsModalOpen(true);
     
     try {
@@ -116,7 +114,6 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         const updatedPilot = await response.json();
-        // N-updatiw l'UI b s-smiya jdida
         setPilots((prev) => prev.map((p) => (p.id === updatedPilot.id ? updatedPilot : p)));
         setSelectedPilot(updatedPilot);
         setIsEditing(false);
@@ -167,14 +164,16 @@ export default function AdminDashboard() {
     let toiletCount = 0, toiletTime = 0;
     let shortCount = 0, shortTime = 0;
     let longCount = 0, longTime = 0;
+    let prayerCount = 0, prayerTime = 0; // Zdna Prayer hna
 
     pilotLogs.forEach(log => {
       if(log.status === 'TOILET') { toiletCount++; toiletTime += log.durationSeconds; }
       if(log.status === 'PAUSE_10MIN') { shortCount++; shortTime += log.durationSeconds; }
       if(log.status === 'PAUSE_1H') { longCount++; longTime += log.durationSeconds; }
+      if(log.status === 'PRAYER') { prayerCount++; prayerTime += log.durationSeconds; }
     });
 
-    return { toiletCount, toiletTime, shortCount, shortTime, longCount, longTime };
+    return { toiletCount, toiletTime, shortCount, shortTime, longCount, longTime, prayerCount, prayerTime };
   };
 
   if (!isAuthenticated) return null;
@@ -226,7 +225,6 @@ export default function AdminDashboard() {
         </main>
       </div>
 
-      {/* L'MODAL */}
       {isModalOpen && selectedPilot && (
         <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -248,7 +246,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* FORMULAIRE DYAL L'EDIT */}
             {isEditing ? (
               <form onSubmit={handleUpdatePilot} className={styles.editForm}>
                 <div className={styles.formGroup}>
@@ -283,16 +280,15 @@ export default function AdminDashboard() {
                 </button>
               </form>
             ) : (
-              // DETAILS W HISTORIQUE
               <>
                 <div className={styles.statsGrid}>
                   <div className={styles.statBox}>
-                    <h4>Short Break (10m)</h4>
+                    <h4>Short Break</h4>
                     <p>{stats.shortCount} times</p>
                     <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.shortTime)} Total</p>
                   </div>
                   <div className={styles.statBox}>
-                    <h4>Long Break (1h)</h4>
+                    <h4>Long Break</h4>
                     <p>{stats.longCount} times</p>
                     <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.longTime)} Total</p>
                   </div>
@@ -300,6 +296,12 @@ export default function AdminDashboard() {
                     <h4>Restroom</h4>
                     <p>{stats.toiletCount} times</p>
                     <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.toiletTime)} Total</p>
+                  </div>
+                  {/* ZDNA PRAYER HNA */}
+                  <div className={styles.statBox}>
+                    <h4>Prayer</h4>
+                    <p>{stats.prayerCount} times</p>
+                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.prayerTime)} Total</p>
                   </div>
                 </div>
 

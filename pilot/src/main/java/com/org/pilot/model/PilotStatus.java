@@ -4,5 +4,6 @@ public enum PilotStatus {
     WORKING,
     PAUSE_10MIN,
     PAUSE_1H,
-    TOILET
+    TOILET,
+    PRAYER
 }
