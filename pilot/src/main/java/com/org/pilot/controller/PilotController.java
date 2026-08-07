@@ -22,7 +22,6 @@ public class PilotController {
         return ResponseEntity.ok(pilotService.getAllPilots());
     }
 
-    // --- L'ENDPOINT JDID DYAL L'ADMIN ---
     @GetMapping("/{id}/logs")
     public ResponseEntity<List<PilotLogDto>> getPilotLogs(@PathVariable Long id) {
         return ResponseEntity.ok(pilotService.getPilotLogs(id));
@@ -51,5 +50,28 @@ public class PilotController {
             @PathVariable Long id,
             @RequestBody PilotStatusUpdateRequest request) {
         return ResponseEntity.ok(pilotService.updatePilotStatus(id, request));
+    }
+
+    // --- LES ENDPOINTS JDAD DYAL L'ADMIN ---
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updatePilotInfo(
+            @PathVariable Long id,
+            @RequestBody PilotUpdateRequest request) {
+        try {
+            return ResponseEntity.ok(pilotService.updatePilot(id, request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deletePilot(@PathVariable Long id) {
+        try {
+            pilotService.deletePilot(id);
+            return ResponseEntity.ok("Pilot deleted successfully!");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 }

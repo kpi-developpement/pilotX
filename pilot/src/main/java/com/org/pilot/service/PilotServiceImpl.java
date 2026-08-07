@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public class PilotServiceImpl implements PilotService {
 
     private final PilotRepository pilotRepository;
-    private final PilotStatusLogRepository logRepository; // Zdnaha hna
+    private final PilotStatusLogRepository logRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final PasswordEncoder passwordEncoder;
 
@@ -42,7 +42,6 @@ public class PilotServiceImpl implements PilotService {
         return mapToDto(pilot);
     }
 
-    // Had l'methode jdida bach l'admin yjbed les logs m-détayéyin
     @Override
     public List<PilotLogDto> getPilotLogs(Long pilotId) {
         return logRepository.findByPilotIdOrderByStartTimeDesc(pilotId).stream()
@@ -108,13 +107,11 @@ public class PilotServiceImpl implements PilotService {
         PilotStatus oldStatus = pilot.getStatus();
         PilotStatus newStatus = request.getStatus();
 
-        // Ila kan f pause (ay no3) w bedel l'status jdid, nsajlou l'historique dyal dik pause!
         if (oldStatus != PilotStatus.WORKING && oldStatus != null && pilot.getPauseStartTime() != null) {
             long secondsPassed = Duration.between(pilot.getPauseStartTime(), LocalDateTime.now()).getSeconds();
             long currentTotal = pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L;
             pilot.setDailyPauseTime(currentTotal + secondsPassed);
 
-            // Hna l'ajout jdid: Kan-sauvegardew log kamel f l'DB!
             PilotStatusLog log = PilotStatusLog.builder()
                     .pilot(pilot)
                     .status(oldStatus)
@@ -140,6 +137,52 @@ public class PilotServiceImpl implements PilotService {
         messagingTemplate.convertAndSend("/topic/pilots", updatedPilotDto);
 
         return updatedPilotDto;
+    }
+
+    // --- LOGIQUE JDIDA DYAL ADMIN (UPDATE W DELETE) ---
+
+    @Override
+    @Transactional
+    public PilotDto updatePilot(Long id, PilotUpdateRequest request) {
+        Pilot pilot = pilotRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
+
+        // N-bdlou gha les champs li t-sayftou w makhaweyinsh
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            pilot.setName(request.getName());
+        }
+        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
+            // N-verifiw wesh l'username jdid ma-wakhdouch chi wahed akher
+            if (!pilot.getUsername().equals(request.getUsername()) && pilotRepository.existsByUsername(request.getUsername())) {
+                throw new RuntimeException("Username already exists!");
+            }
+            pilot.setUsername(request.getUsername());
+        }
+        if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
+            // N-cryptiw l'mot de passe jdid
+            pilot.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
+        Pilot updatedPilot = pilotRepository.save(pilot);
+        PilotDto updatedPilotDto = mapToDto(updatedPilot);
+
+        // N-sayftou l'update f WebSocket bach y-tbdl smiyto f Dashboard f l'blassa
+        messagingTemplate.convertAndSend("/topic/pilots", updatedPilotDto);
+
+        return updatedPilotDto;
+    }
+
+    @Override
+    @Transactional
+    public void deletePilot(Long id) {
+        Pilot pilot = pilotRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
+
+        // Khassna n-mse7ou l'historique dyalo lwel bach maytl3ch erreur d'Foreign Key f DB
+        logRepository.deleteAll(logRepository.findByPilotIdOrderByStartTimeDesc(id));
+
+        // 3ad n-mse7ou l'pilot
+        pilotRepository.delete(pilot);
     }
 
     private PilotDto mapToDto(Pilot pilot) {

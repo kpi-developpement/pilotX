@@ -16,7 +16,6 @@ interface Pilot {
   dailyPauseTime: number; 
 }
 
-// L'interface jdida dyal l'historique
 interface PilotLog {
   id: number;
   status: string;
@@ -31,12 +30,18 @@ export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
-  // State jdid dyal l'Modal
+  // States dyal l'Modal w l'Edit
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [pilotLogs, setPilotLogs] = useState<PilotLog[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // State dyal l'Formulaire dyal l'Update
+  const [editForm, setEditForm] = useState({ name: '', username: '', password: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Protect Route
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
+
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (!token) {
@@ -49,7 +54,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!isAuthenticated) return;
     
-    fetch((process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225') + '/api/v1/pilots')
+    fetch(`${API_URL}/api/v1/pilots`)
       .then((res) => res.json())
       .then((data) => setPilots(data))
       .catch((err) => console.error(err));
@@ -80,12 +85,14 @@ export default function AdminDashboard() {
     return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
   }, []);
 
-  // L'fonction li katjbed detail dyal pilot w kat7el l'Modal
   const openPilotDetails = async (pilot: Pilot) => {
     setSelectedPilot(pilot);
+    setIsEditing(false); // Dima n-bdaw b l'historique
+    setEditForm({ name: pilot.name, username: '', password: '' }); // Username w password khawyin bach nbdlouhom gha ila bghina
     setIsModalOpen(true);
+    
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225'}/api/v1/pilots/${pilot.id}/logs`);
+      const res = await fetch(`${API_URL}/api/v1/pilots/${pilot.id}/logs`);
       if (res.ok) {
         const data = await res.json();
         setPilotLogs(data);
@@ -95,16 +102,67 @@ export default function AdminDashboard() {
     }
   };
 
-  // Fonction li kat-formati we9t (ex: 7min, 22s)
+  const handleUpdatePilot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPilot) return;
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/pilots/${selectedPilot.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+
+      if (response.ok) {
+        const updatedPilot = await response.json();
+        // N-updatiw l'UI b s-smiya jdida
+        setPilots((prev) => prev.map((p) => (p.id === updatedPilot.id ? updatedPilot : p)));
+        setSelectedPilot(updatedPilot);
+        setIsEditing(false);
+        alert('Pilot updated successfully!');
+      } else {
+        const errorText = await response.text();
+        alert(`Error updating pilot: ${errorText}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while updating.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePilot = async () => {
+    if (!selectedPilot) return;
+    
+    const confirmDelete = window.confirm(`Are you sure you want to permanently delete ${selectedPilot.name}? This action cannot be undone.`);
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/pilots/${selectedPilot.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPilots((prev) => prev.filter((p) => p.id !== selectedPilot.id));
+        setIsModalOpen(false);
+      } else {
+        alert('Error deleting pilot.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const formatDuration = (seconds: number) => {
     if (!seconds) return '0s';
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    if (m > 0) return `${m}min, ${s}s`;
+    if (m > 0) return `${m}min ${s}s`;
     return `${s}s`;
   };
 
-  // Fonction dyal les statistiques (Total)
   const getStats = () => {
     let toiletCount = 0, toiletTime = 0;
     let shortCount = 0, shortTime = 0;
@@ -119,7 +177,7 @@ export default function AdminDashboard() {
     return { toiletCount, toiletTime, shortCount, shortTime, longCount, longTime };
   };
 
-  if (!isAuthenticated) return null; // Bach may-flashish dashboard 9bel redirect
+  if (!isAuthenticated) return null;
 
   const total = pilots.length;
   const working = pilots.filter(p => p.status === 'WORKING').length;
@@ -143,7 +201,6 @@ export default function AdminDashboard() {
             
             <div className={styles.grid}>
               {pilots.map((pilot) => (
-                // Zdna l'onClick hna bach y7el l'Modal
                 <div 
                   key={pilot.id} 
                   className={styles.cardWrapper} 
@@ -169,58 +226,108 @@ export default function AdminDashboard() {
         </main>
       </div>
 
-      {/* L'MODAL JDID DYAL DETAILS */}
+      {/* L'MODAL */}
       {isModalOpen && selectedPilot && (
         <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>✕</button>
-            <h2 style={{marginTop: 0, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px'}}>
-              Activity Details: {selectedPilot.name}
-            </h2>
             
-            {/* Les compteurs */}
-            <div className={styles.statsGrid}>
-              <div className={styles.statBox}>
-                <h4>Short Break (10m)</h4>
-                <p>{stats.shortCount} times</p>
-                <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.shortTime)} Total</p>
-              </div>
-              <div className={styles.statBox}>
-                <h4>Long Break (1h)</h4>
-                <p>{stats.longCount} times</p>
-                <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.longTime)} Total</p>
-              </div>
-              <div className={styles.statBox}>
-                <h4>Restroom</h4>
-                <p>{stats.toiletCount} times</p>
-                <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.toiletTime)} Total</p>
+            <div className={styles.modalHeader}>
+              <h2 style={{ margin: 0 }}>
+                {isEditing ? `Edit Pilot: ${selectedPilot.name}` : `Activity: ${selectedPilot.name}`}
+              </h2>
+              <div className={styles.actionButtons}>
+                {!isEditing ? (
+                  <>
+                    <button className={styles.editBtn} onClick={() => setIsEditing(true)}>Edit</button>
+                    <button className={styles.deleteBtn} onClick={handleDeletePilot}>Delete</button>
+                  </>
+                ) : (
+                  <button className={styles.cancelBtn} onClick={() => setIsEditing(false)}>Cancel</button>
+                )}
               </div>
             </div>
 
-            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', marginTop: '20px' }}>
-              Detailed History
-            </h3>
-            
-            {/* Liste dyal l'we9t b detail */}
-            <div className={styles.logsList}>
-              {pilotLogs.length === 0 ? (
-                <p style={{textAlign: 'center', color: '#a4b0be'}}>No activities recorded today.</p>
-              ) : (
-                pilotLogs.map((log) => (
-                  <div key={log.id} className={styles.logItem}>
-                    <div>
-                      <strong>{log.status.replace('_', ' ')}</strong>
-                      <div style={{fontSize: '0.8rem', color: '#a4b0be', marginTop: '4px'}}>
-                        {new Date(log.startTime).toLocaleTimeString()} - {new Date(log.endTime).toLocaleTimeString()}
-                      </div>
-                    </div>
-                    <div style={{fontWeight: 'bold', color: '#1dd1a1'}}>
-                      {formatDuration(log.durationSeconds)}
-                    </div>
+            {/* FORMULAIRE DYAL L'EDIT */}
+            {isEditing ? (
+              <form onSubmit={handleUpdatePilot} className={styles.editForm}>
+                <div className={styles.formGroup}>
+                  <label>Full Name</label>
+                  <input 
+                    type="text" 
+                    value={editForm.name} 
+                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                    placeholder="Enter new name"
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>New Username (Optional)</label>
+                  <input 
+                    type="text" 
+                    value={editForm.username} 
+                    onChange={(e) => setEditForm({...editForm, username: e.target.value})}
+                    placeholder="Leave blank to keep current"
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>New Password (Optional)</label>
+                  <input 
+                    type="password" 
+                    value={editForm.password} 
+                    onChange={(e) => setEditForm({...editForm, password: e.target.value})}
+                    placeholder="Leave blank to keep current"
+                  />
+                </div>
+                <button type="submit" className={styles.saveBtn} disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </form>
+            ) : (
+              // DETAILS W HISTORIQUE
+              <>
+                <div className={styles.statsGrid}>
+                  <div className={styles.statBox}>
+                    <h4>Short Break (10m)</h4>
+                    <p>{stats.shortCount} times</p>
+                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.shortTime)} Total</p>
                   </div>
-                ))
-              )}
-            </div>
+                  <div className={styles.statBox}>
+                    <h4>Long Break (1h)</h4>
+                    <p>{stats.longCount} times</p>
+                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.longTime)} Total</p>
+                  </div>
+                  <div className={styles.statBox}>
+                    <h4>Restroom</h4>
+                    <p>{stats.toiletCount} times</p>
+                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.toiletTime)} Total</p>
+                  </div>
+                </div>
+
+                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', marginTop: '20px' }}>
+                  Detailed History
+                </h3>
+                
+                <div className={styles.logsList}>
+                  {pilotLogs.length === 0 ? (
+                    <p style={{textAlign: 'center', color: '#a4b0be'}}>No activities recorded today.</p>
+                  ) : (
+                    pilotLogs.map((log) => (
+                      <div key={log.id} className={styles.logItem}>
+                        <div>
+                          <strong>{log.status.replace('_', ' ')}</strong>
+                          <div style={{fontSize: '0.8rem', color: '#a4b0be', marginTop: '4px'}}>
+                            {new Date(log.startTime).toLocaleTimeString()} - {new Date(log.endTime).toLocaleTimeString()}
+                          </div>
+                        </div>
+                        <div style={{fontWeight: 'bold', color: '#1dd1a1'}}>
+                          {formatDuration(log.durationSeconds)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
