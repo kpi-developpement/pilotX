@@ -1,21 +1,6 @@
 version: '3.8'
 
 services:
-  # 1. Database (Ghat-creya bo7dha f l'serveur dyalk 10.10.10.25)
-  db:
-    image: postgres:15-alpine
-    container_name: pilot_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: pilot_user
-      POSTGRES_PASSWORD: pilot_password
-      POSTGRES_DB: pilotdb
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    networks:
-      - pilot-network
-
-  # 2. Backend (Spring Boot)
   backend:
     build:
       context: ./pilot
@@ -26,23 +11,18 @@ services:
       - "6225:6225"
     environment:
       - SERVER_PORT=6225
-      # Ki-tconnecta m3a l'container 'db' li l'fo9
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/pilotdb
-      - SPRING_DATASOURCE_USERNAME=pilot_user
-      - SPRING_DATASOURCE_PASSWORD=pilot_password
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://10.10.10.50:5432/pilotdb
+      - SPRING_DATASOURCE_USERNAME=kyntus_user
+      - SPRING_DATASOURCE_PASSWORD=kyntus_password
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-    depends_on:
-      - db
     networks:
       - pilot-network
 
-  # 3. Frontend (Next.js)
   frontend:
     build:
       context: ./pilot-frontend
       dockerfile: Dockerfile
       args:
-        # Ki-pointi 3la l'Backend li f l'serveur dyalk
         - NEXT_PUBLIC_API_URL=http://10.10.10.25:6225
         - NEXT_PUBLIC_WS_URL=http://10.10.10.25:6225/ws
     container_name: pilot_frontend
@@ -53,9 +33,6 @@ services:
       - backend
     networks:
       - pilot-network
-
-volumes:
-  pgdata:
 
 networks:
   pilot-network:
