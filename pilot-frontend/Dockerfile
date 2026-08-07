@@ -1,19 +1,16 @@
 FROM node:20-alpine
 
 WORKDIR /app
-
-# Copier package.json w installi les dependances
 COPY package*.json ./
 RUN npm install
-
-# Copier ga3 l'code dyal l'frontend
 COPY . .
 
-# Buildi l'projet l production
+# ZID HADCHI BATCH NEXT.JS YCHED L'URL:
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+
 RUN npm run build
-
-# L'port dyal Next.js
 EXPOSE 3000
-
-# Lancer l'app
 CMD ["npm", "start"]
