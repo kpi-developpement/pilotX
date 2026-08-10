@@ -15,7 +15,7 @@
   box-shadow: 
     4px 4px 10px rgba(0, 0, 0, 0.03),
     -4px -4px 10px rgba(255, 255, 255, 0.8);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Transformer bounce */
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   z-index: 1;
 }
 
@@ -38,7 +38,7 @@
   border-radius: 50%;
 }
 
-/* -- ETAT HOVER (Kaytbdl chkel w loun kay-popi) -- */
+/* -- ETAT HOVER -- */
 .btn:hover {
   transform: translateY(-5px) scale(1.02);
   color: white;
@@ -74,7 +74,12 @@
   box-shadow: 0 10px 20px -5px rgba(139, 92, 246, 0.5);
 }
 
-/* -- ETAT CLICK / ACTIVE (Kaydkhel l'dakhel) -- */
+.fin_service:hover {
+  background: linear-gradient(135deg, #475569, #1e293b);
+  box-shadow: 0 10px 20px -5px rgba(71, 85, 105, 0.5);
+}
+
+/* -- ETAT CLICK / ACTIVE -- */
 .btn:active, .activeStatus {
   transform: translateY(2px) scale(0.98) !important;
   color: white !important;
@@ -103,5 +108,10 @@
 
 .prayer:active, .activeStatus.prayer {
   background: #6d28d9 !important;
+  box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+.fin_service:active, .activeStatus.fin_service {
+  background: #0f172a !important;
   box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2) !important;
 }

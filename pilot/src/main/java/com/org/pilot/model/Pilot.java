@@ -36,13 +36,16 @@ public class Pilot {
     @Column(name = "last_updated")
     private LocalDateTime lastUpdated;
 
-    // --- Les ajouts ljdad dyal l'we9t ---
     @Column(name = "pause_start_time")
     private LocalDateTime pauseStartTime;
 
     @Column(name = "daily_pause_time")
-    private Long dailyPauseTime; // L'we9t b ttawani (seconds)
+    private Long dailyPauseTime;
 
     @Column(name = "last_active_date")
     private LocalDate lastActiveDate;
+
+    // 🧬 L'ADN Vocal (Stocké sous forme de JSON String dans la DB)
+    @Column(name = "voice_profile", columnDefinition = "TEXT")
+    private String voiceProfile;
 }

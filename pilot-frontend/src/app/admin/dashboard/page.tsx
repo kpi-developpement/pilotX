@@ -38,7 +38,8 @@ export default function AdminDashboard() {
   const [editForm, setEditForm] = useState({ name: '', username: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
+  // ⚠️ THE FIX: Production Ready (Kay-9ra mn Docker awla .env)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -164,7 +165,7 @@ export default function AdminDashboard() {
     let toiletCount = 0, toiletTime = 0;
     let shortCount = 0, shortTime = 0;
     let longCount = 0, longTime = 0;
-    let prayerCount = 0, prayerTime = 0; // Zdna Prayer hna
+    let prayerCount = 0, prayerTime = 0;
 
     pilotLogs.forEach(log => {
       if(log.status === 'TOILET') { toiletCount++; toiletTime += log.durationSeconds; }
@@ -297,7 +298,6 @@ export default function AdminDashboard() {
                     <p>{stats.toiletCount} times</p>
                     <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.toiletTime)} Total</p>
                   </div>
-                  {/* ZDNA PRAYER HNA */}
                   <div className={styles.statBox}>
                     <h4>Prayer</h4>
                     <p>{stats.prayerCount} times</p>

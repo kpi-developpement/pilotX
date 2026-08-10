@@ -14,13 +14,15 @@ public interface PilotService {
     PilotDto getPilotById(Long id);
     PilotDto updatePilotStatus(Long id, PilotStatusUpdateRequest request);
 
-    // Historique d'kola pilot
     List<PilotLogDto> getPilotLogs(Long pilotId);
 
-    PilotDto registerPilot(PilotRegisterRequest request);
+    // Modifié pour accepter l'ADN vocal
+    PilotDto registerPilot(PilotRegisterRequest request, String voiceProfileJson);
     PilotDto loginPilot(PilotLoginRequest request);
 
-    // --- LES OPTIONS JDAD DYAL ADMIN ---
     PilotDto updatePilot(Long id, PilotUpdateRequest request);
     void deletePilot(Long id);
+
+    // Nouvelle méthode pour récupérer la DB des voix
+    String getAllVoiceProfilesJson();
 }

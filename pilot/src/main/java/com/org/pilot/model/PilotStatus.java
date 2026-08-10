@@ -5,5 +5,6 @@ public enum PilotStatus {
     PAUSE_10MIN,
     PAUSE_1H,
     TOILET,
-    PRAYER
+    PRAYER,
+    FIN_SERVICE // ⚠️ NOUVEAU STATUT
 }

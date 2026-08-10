@@ -2,7 +2,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 // L'URL dyal Spring Boot (b l'port jdid li derti)
-const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL + '/ws';
+const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:6225' + '/ws';
 
 export const createWebSocketClient = (onMessageReceived: (message: any) => void) => {
     const client = new Client({

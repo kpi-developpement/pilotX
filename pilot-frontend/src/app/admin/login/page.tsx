@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 
+// ⚠️ THE FIX: Production Ready
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
+
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -13,7 +16,7 @@ export default function AdminLogin() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL + '/api/v1/auth/login', {
+      const res = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -21,7 +24,6 @@ export default function AdminLogin() {
 
       if (res.ok) {
         const data = await res.json();
-        // L'backend ki-sifet { token: "...", username: "admin" }
         localStorage.setItem('adminToken', data.token);
         router.push('/admin/dashboard');
       } else {

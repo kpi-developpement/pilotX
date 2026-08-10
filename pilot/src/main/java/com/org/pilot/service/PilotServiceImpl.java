@@ -1,5 +1,6 @@
 package com.org.pilot.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.org.pilot.dto.*;
 import com.org.pilot.exception.ResourceNotFoundException;
 import com.org.pilot.model.Pilot;
@@ -16,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,6 +30,7 @@ public class PilotServiceImpl implements PilotService {
     private final PilotStatusLogRepository logRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final ObjectMapper objectMapper = new ObjectMapper(); // Pour manipuler le JSON
 
     @Override
     public List<PilotDto> getAllPilots() {
@@ -57,7 +61,7 @@ public class PilotServiceImpl implements PilotService {
 
     @Override
     @Transactional
-    public PilotDto registerPilot(PilotRegisterRequest request) {
+    public PilotDto registerPilot(PilotRegisterRequest request, String voiceProfileJson) {
         if(pilotRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username already exists!");
         }
@@ -70,6 +74,7 @@ public class PilotServiceImpl implements PilotService {
                 .lastUpdated(LocalDateTime.now())
                 .dailyPauseTime(0L)
                 .lastActiveDate(LocalDate.now())
+                .voiceProfile(voiceProfileJson) // 🧬 Sauvegarde de l'ADN dans Postgres
                 .build();
 
         Pilot savedPilot = pilotRepository.save(pilot);
@@ -139,34 +144,28 @@ public class PilotServiceImpl implements PilotService {
         return updatedPilotDto;
     }
 
-    // --- LOGIQUE JDIDA DYAL ADMIN (UPDATE W DELETE) ---
-
     @Override
     @Transactional
     public PilotDto updatePilot(Long id, PilotUpdateRequest request) {
         Pilot pilot = pilotRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
 
-        // N-bdlou gha les champs li t-sayftou w makhaweyinsh
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
             pilot.setName(request.getName());
         }
         if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
-            // N-verifiw wesh l'username jdid ma-wakhdouch chi wahed akher
             if (!pilot.getUsername().equals(request.getUsername()) && pilotRepository.existsByUsername(request.getUsername())) {
                 throw new RuntimeException("Username already exists!");
             }
             pilot.setUsername(request.getUsername());
         }
         if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
-            // N-cryptiw l'mot de passe jdid
             pilot.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
         Pilot updatedPilot = pilotRepository.save(pilot);
         PilotDto updatedPilotDto = mapToDto(updatedPilot);
 
-        // N-sayftou l'update f WebSocket bach y-tbdl smiyto f Dashboard f l'blassa
         messagingTemplate.convertAndSend("/topic/pilots", updatedPilotDto);
 
         return updatedPilotDto;
@@ -178,11 +177,33 @@ public class PilotServiceImpl implements PilotService {
         Pilot pilot = pilotRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
 
-        // Khassna n-mse7ou l'historique dyalo lwel bach maytl3ch erreur d'Foreign Key f DB
         logRepository.deleteAll(logRepository.findByPilotIdOrderByStartTimeDesc(id));
-
-        // 3ad n-mse7ou l'pilot
         pilotRepository.delete(pilot);
+    }
+
+    // 🚀 NOUVEAU: Extraction de tous les profils vocaux pour les envoyer à l'IA
+    @Override
+    public String getAllVoiceProfilesJson() {
+        List<Pilot> pilots = pilotRepository.findAll();
+        Map<String, Object> profilesMap = new HashMap<>();
+
+        for (Pilot p : pilots) {
+            if (p.getVoiceProfile() != null && !p.getVoiceProfile().isEmpty()) {
+                try {
+                    // On convertit le String JSON de la DB en Liste pour le restructurer
+                    List<?> profileList = objectMapper.readValue(p.getVoiceProfile(), List.class);
+                    profilesMap.put(p.getId().toString(), profileList);
+                } catch (Exception e) {
+                    System.err.println("Erreur de parsing du profil vocal pour le pilote " + p.getId());
+                }
+            }
+        }
+
+        try {
+            return objectMapper.writeValueAsString(profilesMap);
+        } catch (Exception e) {
+            return "{}";
+        }
     }
 
     private PilotDto mapToDto(Pilot pilot) {
