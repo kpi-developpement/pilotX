@@ -11,7 +11,7 @@ from typing import List
 
 warnings.filterwarnings('ignore')
 
-FFMPEG_EXE = r"C:\ffmpeg\bin\ffmpeg.exe"
+FFMPEG_EXE = "ffmpeg"
 
 class VoiceAIService:
     

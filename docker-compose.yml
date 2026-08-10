@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  # 🤖 1. L'IA Microservice (FastAPI)
+  ai_service:
+    build:
+      context: ./kyntus-ai-service
+      dockerfile: Dockerfile
+    container_name: pilot_ai
+    restart: unless-stopped
+    ports:
+      - "8556:8556" # ⚠️ THE FIX: Port 8556
+    networks:
+      - pilot-network
+
+  # ☕ 2. Le Backend (Spring Boot)
   backend:
     build:
       context: ./pilot
@@ -14,10 +27,15 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://10.10.10.50:5432/pilotdb
       - SPRING_DATASOURCE_USERNAME=kyntus_user
       - SPRING_DATASOURCE_PASSWORD=kyntus_password
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=create 
+      # ⚠️ THE FIX: Spring Boot kay-tiri f l'IA f l'port 8556
+      - AI_SERVICE_URL=http://ai_service:8556/api/v1/voice 
+    depends_on:
+      - ai_service
     networks:
       - pilot-network
 
+  # 🌐 3. Le Frontend (Next.js)
   frontend:
     build:
       context: ./pilot-frontend
