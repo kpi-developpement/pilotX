@@ -122,8 +122,6 @@ class VoiceAIService:
         cosine_sim = np.dot(dna1, dna2)
         euclidean_dist = np.linalg.norm(dna1 - dna2)
         pitch_diff = abs(p1 - p2)
-        
-        # ⚠️ THE SECRET WEAPON: Chebyshev Distance (L'far9 l'a9sa f 3er9 wa7ed)
         max_diff = np.max(np.abs(dna1 - dna2))
         
         base_score = max(0.0, cosine_sim) * 100.0
@@ -132,23 +130,23 @@ class VoiceAIService:
         euc_penalty_str = "OK"
         pitch_penalty_str = "OK"
         
-        # 1. Pénalité Euclidienne (Rkhefnaha chwia bach t-passi nta wkha t-beddel l'phrase)
-        if euclidean_dist > 0.40:
+        # 1. Pénalité Euclidienne (Adoucie pour éviter les faux rejets)
+        if euclidean_dist > 0.42:
             score *= 0.0 
-            euc_penalty_str = f"REJET (Dist: {euclidean_dist:.3f} > 0.40)"
-        elif euclidean_dist > 0.35:
+            euc_penalty_str = f"REJET (Dist: {euclidean_dist:.3f} > 0.42)"
+        elif euclidean_dist > 0.36:
             score *= 0.6 
             euc_penalty_str = f"x0.6 (Dist: {euclidean_dist:.3f})"
-        elif euclidean_dist > 0.28:
-            score *= 0.85 # Nta jbti 0.34 w 0.32 -> Ghadi t-dreb f 0.85 -> Score dyalek ghadi yb9a ~80% (PASS!)
+        elif euclidean_dist > 0.30:
+            score *= 0.85 
             euc_penalty_str = f"x0.85 (Dist: {euclidean_dist:.3f})"
 
-        # 2. ⚠️ Pénalité Max Diff (Hadi li ghadi t-9tel sa7bek l'imposteur)
-        if max_diff > 0.15:
+        # 2. ⚠️ Pénalité Max Diff (Adoucie à 0.13 au lieu de 0.11)
+        if max_diff > 0.16:
             score *= 0.0
             euc_penalty_str += f" | MaxDiff REJET ({max_diff:.3f})"
-        elif max_diff > 0.11:
-            score *= 0.6 # Sa7bek jab 0.14 -> Ghadi y-t-dreb f 0.6 -> Score dyalo ghadi y-ti7 l ~50% (FAIL!)
+        elif max_diff > 0.13:
+            score *= 0.6 
             euc_penalty_str += f" | MaxDiff x0.6 ({max_diff:.3f})"
 
         # 3. Pénalité de Pitch
@@ -232,7 +230,6 @@ class VoiceAIService:
                 
                 print("="*70)
 
-                # ⚠️ SEUIL D'ACCEPTATION: 75%
                 if best_score >= 75.0 and best_user_id is not None: 
                     print(f"✅ ACCÈS AUTORISÉ: Employé ID {best_user_id} avec {best_score:.1f}%")
                     return {"success": True, "identified_user_id": best_user_id, "match_score": round(best_score, 2), "message": "Identification réussie"}
