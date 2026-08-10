@@ -1,52 +1,66 @@
 version: '3.8'
 
 services:
-  # 🤖 1. L'IA Microservice (FastAPI)
+  # 🌐 1. NGINX (Reverse Proxy & HTTPS)
+  nginx:
+    image: nginx:latest
+    container_name: pilot_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - pilot-network
+
+  # 🤖 2. L'IA Microservice (FastAPI)
   ai_service:
     build:
       context: ./kyntus-ai-service
       dockerfile: Dockerfile
     container_name: pilot_ai
     restart: unless-stopped
-    ports:
-      - "8556:8556" # ⚠️ THE FIX: Port 8556
+    # ⚠️ 7iyedna l'ports mn hna, l'IA makhassh tkon accessible mn bera, ghir Spring Boot li ychoufha
     networks:
       - pilot-network
 
-  # ☕ 2. Le Backend (Spring Boot)
+  # ☕ 3. Le Backend (Spring Boot)
   backend:
     build:
       context: ./pilot
       dockerfile: Dockerfile
     container_name: pilot_backend
     restart: unless-stopped
-    ports:
-      - "6225:6225"
+    # ⚠️ 7iyedna l'ports mn hna, Nginx howa li ghadi y-dkhl lih
     environment:
       - SERVER_PORT=6225
       - SPRING_DATASOURCE_URL=jdbc:postgresql://10.10.10.50:5432/pilotdb
       - SPRING_DATASOURCE_USERNAME=kyntus_user
       - SPRING_DATASOURCE_PASSWORD=kyntus_password
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=create 
-      # ⚠️ THE FIX: Spring Boot kay-tiri f l'IA f l'port 8556
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - AI_SERVICE_URL=http://ai_service:8556/api/v1/voice 
     depends_on:
       - ai_service
     networks:
       - pilot-network
 
-  # 🌐 3. Le Frontend (Next.js)
+  # 💻 4. Le Frontend (Next.js)
   frontend:
     build:
       context: ./pilot-frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://10.10.10.25:6225
-        - NEXT_PUBLIC_WS_URL=http://10.10.10.25:6225/ws
+        # ⚠️ THE FIX: Daba kolchi ghadi y-khdem b l'domaine M-SÉCURISÉ
+        - NEXT_PUBLIC_API_URL=https://pilot.kyntus.fr
+        - NEXT_PUBLIC_WS_URL=wss://pilot.kyntus.fr/ws
     container_name: pilot_frontend
     restart: unless-stopped
-    ports:
-      - "2227:3000"
+    # ⚠️ 7iyedna l'ports mn hna, Nginx howa li ghadi y-dkhl lih
     depends_on:
       - backend
     networks:
