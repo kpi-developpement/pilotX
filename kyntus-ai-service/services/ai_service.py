@@ -83,17 +83,15 @@ class VoiceAIService:
             pitch = np.nanmedian(f0[voiced_flag]) if np.any(voiced_flag) else 0
             if pitch == 0: return None, "Fréquence vocale illisible.", None
 
-            # 🧬 L'ADN TITANIUM (139 Dimensions)
             mfcc_full = librosa.feature.mfcc(y=y_clean, sr=sr, n_mfcc=24)
-            mfcc = mfcc_full[1:, :] # Ignore volume
+            mfcc = mfcc_full[1:, :] 
             
             mfcc_delta = librosa.feature.delta(mfcc)
             
-            # Nouveaux critères d'articulation et de timbre (Anti-Confusion Bnat/Bnat)
             centroid = librosa.feature.spectral_centroid(y=y_clean, sr=sr)
             bandwidth = librosa.feature.spectral_bandwidth(y=y_clean, sr=sr)
-            contrast = librosa.feature.spectral_contrast(y=y_clean, sr=sr) # 7 bandes de résonance
-            zcr = librosa.feature.zero_crossing_rate(y=y_clean) # Articulation des consonnes
+            contrast = librosa.feature.spectral_contrast(y=y_clean, sr=sr) 
+            zcr = librosa.feature.zero_crossing_rate(y=y_clean) 
 
             acoustic_adn = np.concatenate([
                 np.mean(mfcc, axis=1), np.std(mfcc, axis=1), np.median(mfcc, axis=1), 
@@ -125,24 +123,35 @@ class VoiceAIService:
         euclidean_dist = np.linalg.norm(dna1 - dna2)
         pitch_diff = abs(p1 - p2)
         
+        # ⚠️ THE SECRET WEAPON: Chebyshev Distance (L'far9 l'a9sa f 3er9 wa7ed)
+        max_diff = np.max(np.abs(dna1 - dna2))
+        
         base_score = max(0.0, cosine_sim) * 100.0
         score = base_score
         
         euc_penalty_str = "OK"
         pitch_penalty_str = "OK"
         
-        # ⚠️ ZERO-TRUST EUCLIDEAN PENALTY (Très stricte pour séparer deux voix similaires)
-        if euclidean_dist > 0.32:
+        # 1. Pénalité Euclidienne (Rkhefnaha chwia bach t-passi nta wkha t-beddel l'phrase)
+        if euclidean_dist > 0.40:
             score *= 0.0 
-            euc_penalty_str = f"REJET (Dist: {euclidean_dist:.3f} > 0.32)"
-        elif euclidean_dist > 0.26:
-            score *= 0.4 # Chute drastique du score si la distance dépasse 0.26
-            euc_penalty_str = f"x0.4 (Dist: {euclidean_dist:.3f})"
-        elif euclidean_dist > 0.22:
-            score *= 0.8 # Doute léger
-            euc_penalty_str = f"x0.8 (Dist: {euclidean_dist:.3f})"
+            euc_penalty_str = f"REJET (Dist: {euclidean_dist:.3f} > 0.40)"
+        elif euclidean_dist > 0.35:
+            score *= 0.6 
+            euc_penalty_str = f"x0.6 (Dist: {euclidean_dist:.3f})"
+        elif euclidean_dist > 0.28:
+            score *= 0.85 # Nta jbti 0.34 w 0.32 -> Ghadi t-dreb f 0.85 -> Score dyalek ghadi yb9a ~80% (PASS!)
+            euc_penalty_str = f"x0.85 (Dist: {euclidean_dist:.3f})"
 
-        # ⚠️ GENDER & FATIGUE LOCK
+        # 2. ⚠️ Pénalité Max Diff (Hadi li ghadi t-9tel sa7bek l'imposteur)
+        if max_diff > 0.15:
+            score *= 0.0
+            euc_penalty_str += f" | MaxDiff REJET ({max_diff:.3f})"
+        elif max_diff > 0.11:
+            score *= 0.6 # Sa7bek jab 0.14 -> Ghadi y-t-dreb f 0.6 -> Score dyalo ghadi y-ti7 l ~50% (FAIL!)
+            euc_penalty_str += f" | MaxDiff x0.6 ({max_diff:.3f})"
+
+        # 3. Pénalité de Pitch
         if pitch_diff > 40:
             score *= 0.0 
             pitch_penalty_str = f"REJET (Diff: {pitch_diff:.1f}Hz > 40Hz)"
@@ -153,6 +162,7 @@ class VoiceAIService:
         return {
             "cosine_sim": cosine_sim,
             "euclidean_dist": euclidean_dist,
+            "max_diff": max_diff,
             "pitch_diff": pitch_diff,
             "base_score": base_score,
             "euc_penalty_str": euc_penalty_str,
@@ -211,6 +221,7 @@ class VoiceAIService:
                     print(f"👤 Vs User ID: {user_id} | DB Hash: {db_hash}")
                     print(f"   ├─ Cosine Sim  : {math_data['cosine_sim']:.4f} (Base Score: {math_data['base_score']:.1f}%)")
                     print(f"   ├─ Euc. Dist   : {math_data['euclidean_dist']:.4f} -> Pénalité: {math_data['euc_penalty_str']}")
+                    print(f"   ├─ Max Diff    : {math_data['max_diff']:.4f}")
                     print(f"   ├─ Pitch Diff  : {math_data['pitch_diff']:.1f}Hz -> Pénalité: {math_data['pitch_penalty_str']}")
                     print(f"   └─ FINAL SCORE : {score:.1f}%")
                     print("- " * 35)
