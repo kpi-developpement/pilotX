@@ -60,8 +60,6 @@ class VoiceAIService:
     def extract_features(audio_path, is_registration=False, step_num=1):
         try:
             y_raw, sr = librosa.load(audio_path, sr=44100)
-            
-            # ⚠️ THE FIX (ANTI-SDA3): stationary=False kay-filtri sda3 dyal bnadm li kayhder f l'background
             y_clean_noise = nr.reduce_noise(y=y_raw, sr=sr, stationary=False, prop_decrease=0.85)
             
             raw_rms = np.mean(librosa.feature.rms(y=y_clean_noise))
@@ -85,18 +83,25 @@ class VoiceAIService:
             pitch = np.nanmedian(f0[voiced_flag]) if np.any(voiced_flag) else 0
             if pitch == 0: return None, "Fréquence vocale illisible.", None
 
-            mfcc_full = librosa.feature.mfcc(y=y_clean, sr=sr, n_mfcc=40)
-            mfcc = mfcc_full[1:, :] 
+            # 🧬 L'ADN TITANIUM (139 Dimensions)
+            mfcc_full = librosa.feature.mfcc(y=y_clean, sr=sr, n_mfcc=24)
+            mfcc = mfcc_full[1:, :] # Ignore volume
             
             mfcc_delta = librosa.feature.delta(mfcc)
-            mfcc_delta2 = librosa.feature.delta(mfcc, order=2)
-            spectral_contrast = librosa.feature.spectral_contrast(y=y_clean, sr=sr)
+            
+            # Nouveaux critères d'articulation et de timbre (Anti-Confusion Bnat/Bnat)
+            centroid = librosa.feature.spectral_centroid(y=y_clean, sr=sr)
+            bandwidth = librosa.feature.spectral_bandwidth(y=y_clean, sr=sr)
+            contrast = librosa.feature.spectral_contrast(y=y_clean, sr=sr) # 7 bandes de résonance
+            zcr = librosa.feature.zero_crossing_rate(y=y_clean) # Articulation des consonnes
 
             acoustic_adn = np.concatenate([
-                np.mean(mfcc, axis=1), np.std(mfcc, axis=1), 
+                np.mean(mfcc, axis=1), np.std(mfcc, axis=1), np.median(mfcc, axis=1), 
                 np.mean(mfcc_delta, axis=1), np.std(mfcc_delta, axis=1),
-                np.mean(mfcc_delta2, axis=1), np.std(mfcc_delta2, axis=1),
-                np.mean(spectral_contrast, axis=1)
+                np.mean(contrast, axis=1), np.std(contrast, axis=1),
+                np.mean(zcr, axis=1), np.std(zcr, axis=1),
+                np.mean(centroid, axis=1) / 1000.0,
+                np.mean(bandwidth, axis=1) / 1000.0
             ])
             
             acoustic_adn = acoustic_adn / np.linalg.norm(acoustic_adn)
@@ -126,17 +131,18 @@ class VoiceAIService:
         euc_penalty_str = "OK"
         pitch_penalty_str = "OK"
         
-        # ⚠️ THE FIX (TOLÉRANCE AU BRUIT): On relâche un tout petit peu la pénalité pour laisser passer le bruit de fond
-        if euclidean_dist > 0.42:
+        # ⚠️ ZERO-TRUST EUCLIDEAN PENALTY (Très stricte pour séparer deux voix similaires)
+        if euclidean_dist > 0.32:
             score *= 0.0 
-            euc_penalty_str = f"REJET (Dist: {euclidean_dist:.3f} > 0.42)"
-        elif euclidean_dist > 0.36:
-            score *= 0.6 
-            euc_penalty_str = f"x0.6 (Dist: {euclidean_dist:.3f})"
-        elif euclidean_dist > 0.32:
-            score *= 0.85 # Tolérance pour le bruit de fond (Score 95% -> 80.7% -> PASS)
-            euc_penalty_str = f"x0.85 (Dist: {euclidean_dist:.3f})"
+            euc_penalty_str = f"REJET (Dist: {euclidean_dist:.3f} > 0.32)"
+        elif euclidean_dist > 0.26:
+            score *= 0.4 # Chute drastique du score si la distance dépasse 0.26
+            euc_penalty_str = f"x0.4 (Dist: {euclidean_dist:.3f})"
+        elif euclidean_dist > 0.22:
+            score *= 0.8 # Doute léger
+            euc_penalty_str = f"x0.8 (Dist: {euclidean_dist:.3f})"
 
+        # ⚠️ GENDER & FATIGUE LOCK
         if pitch_diff > 40:
             score *= 0.0 
             pitch_penalty_str = f"REJET (Diff: {pitch_diff:.1f}Hz > 40Hz)"
@@ -194,6 +200,7 @@ class VoiceAIService:
                     master_f = np.array(profile_list)
                     
                     if len(master_f) != len(new_f):
+                        print(f"⚠️ [WARNING] Profil ignoré (User {user_id}): Format ADN obsolète ({len(master_f)} vs {len(new_f)}).")
                         continue
                     
                     math_data = VoiceAIService.calculate_similarity(master_f, new_f)
@@ -214,6 +221,7 @@ class VoiceAIService:
                 
                 print("="*70)
 
+                # ⚠️ SEUIL D'ACCEPTATION: 75%
                 if best_score >= 75.0 and best_user_id is not None: 
                     print(f"✅ ACCÈS AUTORISÉ: Employé ID {best_user_id} avec {best_score:.1f}%")
                     return {"success": True, "identified_user_id": best_user_id, "match_score": round(best_score, 2), "message": "Identification réussie"}
