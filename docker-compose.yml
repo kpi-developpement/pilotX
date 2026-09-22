@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 🌐 1. NGINX (Reverse Proxy & HTTPS - Khelinaah ila bghiti tkhdem b domaine mn b3d)
+  # 🌐 1. NGINX (Reverse Proxy & HTTPS)
   nginx:
     image: nginx:latest
     container_name: pilot_nginx
@@ -25,7 +25,6 @@ services:
       dockerfile: Dockerfile
     container_name: pilot_backend
     restart: unless-stopped
-    # ⚠️ THE FIX: Khassna n-exposiw l'port 6225 bach l'Frontend (Navigateur) y9der y-connecta lih
     ports:
       - "6225:6225"
     environment:
@@ -43,12 +42,12 @@ services:
       context: ./pilot-frontend
       dockerfile: Dockerfile
       args:
-        # ⚠️ THE FIX: Daba l'build ghadi yakhod l'IP dyal serveur
-        - NEXT_PUBLIC_API_URL=http://10.10.10.25:6225
-        - NEXT_PUBLIC_WS_URL=ws://10.10.10.25:6225/ws
+        # ⚠️ THE FIX: Daba l'Frontend ghadi y-3eyet l'Nginx b HTTPS
+        # Nginx ghadi y-ched /api/ w y-siftha l'Backend
+        - NEXT_PUBLIC_API_URL=https://10.10.10.25
+        - NEXT_PUBLIC_WS_URL=wss://10.10.10.25/ws
     container_name: pilot_frontend
     restart: unless-stopped
-    # ⚠️ THE FIX: N-exposiw l'port 3114 bach t-accéder lih b http://10.10.10.25:3114
     ports:
       - "3114:3114"
     depends_on:
