@@ -12,5 +12,9 @@ ARG NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
 RUN npm run build
-EXPOSE 3000
+
+# ⚠️ THE FIX: Bdelna l'port l 3114
+EXPOSE 3114
+
+# ⚠️ THE FIX: Lanciw Next.js f l'port 3114
 CMD ["npm", "start"]

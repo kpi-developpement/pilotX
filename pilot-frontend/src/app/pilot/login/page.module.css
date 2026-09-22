@@ -85,8 +85,8 @@
 }
 .btn:hover { background-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3); }
 
-/* Voice Login UI */
-.voiceContainer {
+/* Windows Hello UI */
+.bioContainer {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -94,32 +94,21 @@
   padding: 10px 0;
 }
 
-.challengeBox {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  padding: 20px;
-  border-radius: 16px;
-  width: 100%;
-}
-
-.challengeLabel { font-size: 0.85rem; color: #10b981; font-weight: 700; text-transform: uppercase; margin-bottom: 10px; display: block; }
-.challengeText { font-size: 1.4rem; font-weight: 800; color: #0f172a; }
-
-.micBtn {
-  width: 90px; height: 90px; border-radius: 50%; border: none;
+.fingerprintBtn {
+  width: 100px; height: 100px; border-radius: 50%; border: none;
   background: #0f172a; color: white; display: flex; justify-content: center; align-items: center;
   cursor: pointer; transition: all 0.3s; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3);
 }
-.micBtn svg { width: 35px; height: 35px; }
-.micBtn:hover { transform: scale(1.05); background: #1e293b; }
+.fingerprintBtn svg { width: 45px; height: 45px; }
+.fingerprintBtn:hover { transform: scale(1.05); background: #1e293b; }
 
-.micBtn.recording {
-  background: #10b981; animation: pulseMicGreen 1.5s infinite; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+.fingerprintBtn.scanning {
+  background: #10b981; animation: pulseScanGreen 1.5s infinite; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
 }
 
-@keyframes pulseMicGreen {
+@keyframes pulseScanGreen {
   0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 25px rgba(16, 185, 129, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 

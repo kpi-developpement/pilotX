@@ -45,7 +45,7 @@ public class Pilot {
     @Column(name = "last_active_date")
     private LocalDate lastActiveDate;
 
-    // 🧬 L'ADN Vocal (Stocké sous forme de JSON String dans la DB)
-    @Column(name = "voice_profile", columnDefinition = "TEXT")
-    private String voiceProfile;
+    // 👆 L'ID dyal l'bessma (Windows Hello) f blast l'ADN Vocal
+    @Column(name = "webauthn_credential_id", columnDefinition = "TEXT")
+    private String webAuthnCredentialId;
 }

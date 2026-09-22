@@ -7,9 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class PilotRegisterRequest {
-    private String name;
+public class WebAuthnLoginRequest {
     private String username;
-    private String password;
-    private String webAuthnCredentialId; // Jdida
+    private String credentialId;
 }

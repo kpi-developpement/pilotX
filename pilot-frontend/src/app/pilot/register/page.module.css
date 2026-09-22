@@ -104,7 +104,7 @@
   text-decoration: underline;
 }
 
-/* --- BOT UI STYLES --- */
+/* --- WINDOWS HELLO UI STYLES --- */
 .botContainer {
   display: flex;
   flex-direction: column;
@@ -113,33 +113,9 @@
   padding: 20px 0;
 }
 
-.promptBox {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  padding: 20px;
-  border-radius: 16px;
-  width: 100%;
-}
-
-.promptLabel {
-  font-size: 0.85rem;
-  color: #3b82f6;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 10px;
-  display: block;
-}
-
-.promptText {
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.micBtn {
-  width: 80px;
-  height: 80px;
+.fingerprintBtn {
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   border: none;
   background: #0f172a;
@@ -150,77 +126,30 @@
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3);
+  position: relative;
 }
 
-.micBtn svg {
-  width: 30px;
-  height: 30px;
+.fingerprintBtn svg {
+  width: 45px;
+  height: 45px;
+  z-index: 2;
 }
 
-.micBtn:hover {
+.fingerprintBtn:hover {
   transform: scale(1.05);
   background: #1e293b;
 }
 
-.micBtn.recording {
-  background: #ef4444;
-  animation: pulseMic 1.5s infinite;
-  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-}
-
-@keyframes pulseMic {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-  70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-
-/* ⚠️ NOUVEAU BOUTON NEXT */
-.nextBtn {
-  padding: 12px 24px;
-  background-color: #10b981;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s;
-  margin-top: 10px;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-  animation: slideUp 0.3s ease-out forwards;
-}
-
-.nextBtn:hover {
-  background-color: #059669;
-  transform: translateY(-2px);
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.progressDots {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #cbd5e1;
-  transition: all 0.3s;
-}
-
-.dot.active {
+.fingerprintBtn.scanning {
   background: #3b82f6;
-  transform: scale(1.3);
+  animation: pulseScan 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
 }
 
-.dot.done {
-  background: #10b981;
+@keyframes pulseScan {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 25px rgba(59, 130, 246, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
 }
 
 .loadingState {
@@ -228,7 +157,7 @@
   flex-direction: column;
   align-items: center;
   gap: 15px;
-  color: #3b82f6;
+  color: #10b981;
   font-weight: 700;
   padding: 40px 0;
 }
@@ -236,8 +165,8 @@
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(59, 130, 246, 0.2);
-  border-top-color: #3b82f6;
+  border: 4px solid rgba(16, 185, 129, 0.2);
+  border-top-color: #10b981;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
