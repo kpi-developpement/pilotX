@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 
+// ⚠️ THE FIX: URL dyal Serveur
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
 
 export default function PilotRegister() {
@@ -22,7 +23,6 @@ export default function PilotRegister() {
     setStep(2);
   };
 
-  // Helper bach n-generiw random buffer l'WebAuthn
   const generateRandomBuffer = (length: number) => {
     const array = new Uint8Array(length);
     window.crypto.getRandomValues(array);
@@ -32,7 +32,6 @@ export default function PilotRegister() {
   const registerWindowsHello = async () => {
     setIsScanning(true);
     try {
-      // 1. L'appel l'API dyal l'navigateur (Windows Hello / TouchID)
       const publicKey: PublicKeyCredentialCreationOptions = {
         challenge: generateRandomBuffer(32),
         rp: {
@@ -45,11 +44,11 @@ export default function PilotRegister() {
           displayName: name
         },
         pubKeyCredParams: [
-          { type: "public-key", alg: -7 }, // ES256
-          { type: "public-key", alg: -257 } // RS256
+          { type: "public-key", alg: -7 },
+          { type: "public-key", alg: -257 }
         ],
         authenticatorSelection: {
-          authenticatorAttachment: "platform", // Ykhdem b Windows Hello / TouchID
+          authenticatorAttachment: "platform",
           userVerification: "required"
         },
         timeout: 60000,
@@ -59,7 +58,6 @@ export default function PilotRegister() {
       const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential;
       
       if (credential) {
-        // L'bessma t9rat mzyan! N-sifto l'ID l'Backend
         submitFullRegistration(credential.id);
       }
     } catch (err) {

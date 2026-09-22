@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 
+// ⚠️ THE FIX: URL dyal Serveur
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
 
 export default function PilotLogin() {

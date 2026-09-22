@@ -11,8 +11,8 @@ interface PilotData {
   status: string;
 }
 
-// ⚠️ THE FIX: Production Ready (Kay-9ra mn Docker awla .env)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// ⚠️ THE FIX: URL dyal Serveur
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
 
 export default function PilotDashboard() {
   const [pilot, setPilot] = useState<PilotData | null>(null);

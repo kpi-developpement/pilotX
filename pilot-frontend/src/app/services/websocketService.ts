@@ -1,8 +1,8 @@
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-// L'URL dyal Spring Boot (b l'port jdid li derti)
-const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:6225' + '/ws';
+// ⚠️ THE FIX: URL dyal WebSocket f Serveur 10.10.10.25
+const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://10.10.10.25:6225/ws';
 
 export const createWebSocketClient = (onMessageReceived: (message: any) => void) => {
     const client = new Client({
