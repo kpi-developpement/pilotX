@@ -25,7 +25,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PilotServiceImpl implements PilotService {
 
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$");
+    // 3-30 caractères: 7rouf, ar9am, . _ -
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9._-]{3,30}$");
     private static final int MIN_PASSWORD = 6;
 
     private final PilotRepository pilotRepository;
@@ -60,26 +61,25 @@ public class PilotServiceImpl implements PilotService {
     }
 
     // ==========================================
-    // 📝 INSCRIPTION (Email + Password)
+    // 📝 INSCRIPTION (Username + Password)
     // ==========================================
     @Override
     @Transactional
     public PilotAuthResponse registerPilot(PilotRegisterRequest request) {
         String name = request.getName() == null ? "" : request.getName().trim();
-        String email = normalizeEmail(request.getEmail());
+        String username = normalize(request.getUsername());
         String password = request.getPassword() == null ? "" : request.getPassword();
 
         if (name.isEmpty()) throw new IllegalArgumentException("Le nom est obligatoire.");
-        if (!EMAIL_PATTERN.matcher(email).matches()) throw new IllegalArgumentException("Adresse email invalide.");
-        if (password.length() < MIN_PASSWORD) throw new IllegalArgumentException("Le mot de passe doit contenir au moins " + MIN_PASSWORD + " caractères.");
-        if (pilotRepository.existsByEmailIgnoreCase(email) || pilotRepository.existsByUsername(email)) {
-            throw new IllegalArgumentException("Cet email est déjà utilisé.");
+        if (!USERNAME_PATTERN.matcher(username).matches()) {
+            throw new IllegalArgumentException("Identifiant invalide (3 à 30 caractères : lettres, chiffres, . _ -).");
         }
+        if (password.length() < MIN_PASSWORD) throw new IllegalArgumentException("Le mot de passe doit contenir au moins " + MIN_PASSWORD + " caractères.");
+        if (pilotRepository.existsByUsername(username)) throw new IllegalArgumentException("Cet identifiant est déjà utilisé.");
 
         Pilot pilot = Pilot.builder()
                 .name(name)
-                .email(email)
-                .username(email)
+                .username(username)
                 .password(passwordEncoder.encode(password))
                 .status(PilotStatus.FIN_SERVICE) // Hors ligne 7ta ykhtar status
                 .lastUpdated(LocalDateTime.now())
@@ -95,19 +95,19 @@ public class PilotServiceImpl implements PilotService {
     }
 
     // ==========================================
-    // 🔐 LOGIN (Email + Password)
+    // 🔐 LOGIN (Username + Password)
     // ==========================================
     @Override
     public PilotAuthResponse loginPilot(PilotLoginRequest request) {
-        String login = normalizeEmail(request.getEmail());
+        String raw = request.getUsername() == null ? "" : request.getUsername().trim();
 
-        // Email awalan, w ila makanch n9elbou b l'username (anciens comptes)
-        Pilot pilot = pilotRepository.findByEmailIgnoreCase(login)
-                .or(() -> pilotRepository.findByUsername(request.getEmail() == null ? "" : request.getEmail().trim()))
-                .orElseThrow(() -> new SecurityException("Email ou mot de passe incorrect."));
+        // Lowercase awalan, w ila makanch n9elbou b chkl l'asli (anciens comptes)
+        Pilot pilot = pilotRepository.findByUsername(raw.toLowerCase())
+                .or(() -> pilotRepository.findByUsername(raw))
+                .orElseThrow(() -> new SecurityException("Identifiant ou mot de passe incorrect."));
 
         if (request.getPassword() == null || !passwordEncoder.matches(request.getPassword(), pilot.getPassword())) {
-            throw new SecurityException("Email ou mot de passe incorrect.");
+            throw new SecurityException("Identifiant ou mot de passe incorrect.");
         }
 
         return new PilotAuthResponse(jwtUtils.generatePilotToken(pilot.getId()), mapToDto(pilot));
@@ -167,16 +167,14 @@ public class PilotServiceImpl implements PilotService {
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
             pilot.setName(request.getName().trim());
         }
-        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
-            String email = normalizeEmail(request.getEmail());
-            String current = pilot.getEmail() != null ? pilot.getEmail() : pilot.getUsername();
-            if (!email.equalsIgnoreCase(current)) { // Ghir ila tbdel
-                if (!EMAIL_PATTERN.matcher(email).matches()) throw new IllegalArgumentException("Adresse email invalide.");
-                if (pilotRepository.existsByEmailIgnoreCase(email) || pilotRepository.existsByUsername(email)) {
-                    throw new IllegalArgumentException("Cet email est déjà utilisé.");
+        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
+            String username = normalize(request.getUsername());
+            if (!username.equals(pilot.getUsername())) { // Ghir ila tbdel
+                if (!USERNAME_PATTERN.matcher(username).matches()) {
+                    throw new IllegalArgumentException("Identifiant invalide (3 à 30 caractères : lettres, chiffres, . _ -).");
                 }
-                pilot.setEmail(email);
-                pilot.setUsername(email);
+                if (pilotRepository.existsByUsername(username)) throw new IllegalArgumentException("Cet identifiant est déjà utilisé.");
+                pilot.setUsername(username);
             }
         }
         if (request.getPassword() != null && !request.getPassword().isEmpty()) {
@@ -204,15 +202,15 @@ public class PilotServiceImpl implements PilotService {
                 .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
     }
 
-    private String normalizeEmail(String email) {
-        return email == null ? "" : email.trim().toLowerCase();
+    private String normalize(String username) {
+        return username == null ? "" : username.trim().toLowerCase();
     }
 
     private PilotDto mapToDto(Pilot pilot) {
         return PilotDto.builder()
                 .id(pilot.getId())
                 .name(pilot.getName())
-                .email(pilot.getEmail() != null ? pilot.getEmail() : pilot.getUsername())
+                .username(pilot.getUsername())
                 .status(pilot.getStatus())
                 .lastUpdated(pilot.getLastUpdated())
                 .dailyPauseTime(pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L)

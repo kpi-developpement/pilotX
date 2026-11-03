@@ -12,7 +12,7 @@ import { ADMIN_TOKEN_KEY, api, ApiError, storage } from '../../lib/api';
 interface Pilot {
   id: number;
   name: string;
-  email?: string;
+  username?: string;
   status: string;
   lastUpdated: string;
   dailyPauseTime: number; 
@@ -37,7 +37,7 @@ export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  const [editForm, setEditForm] = useState({ name: '', email: '', password: '' });
+  const [editForm, setEditForm] = useState({ name: '', username: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
@@ -100,7 +100,7 @@ export default function AdminDashboard() {
   const openPilotDetails = async (pilot: Pilot) => {
     setSelectedPilot(pilot);
     setIsEditing(false); 
-    setEditForm({ name: pilot.name, email: pilot.email || '', password: '' });
+    setEditForm({ name: pilot.name, username: '', password: '' });
     setPilotLogs([]);
     setIsModalOpen(true);
 
@@ -243,8 +243,8 @@ export default function AdminDashboard() {
                 <h2 style={{ margin: 0 }}>
                   {isEditing ? `Edit Pilot: ${selectedPilot.name}` : `Activity: ${selectedPilot.name}`}
                 </h2>
-                {selectedPilot.email && (
-                  <div style={{ fontSize: '0.85rem', color: '#a4b0be', marginTop: 4 }}>{selectedPilot.email}</div>
+                {selectedPilot.username && (
+                  <div style={{ fontSize: '0.85rem', color: '#a4b0be', marginTop: 4 }}>@{selectedPilot.username}</div>
                 )}
               </div>
               <div className={styles.actionButtons}>
@@ -271,12 +271,12 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div className={styles.formGroup}>
-                  <label>Email</label>
+                  <label>Nouvel identifiant (optionnel)</label>
                   <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm({...editForm, email: e.target.value})}
-                    placeholder="prenom.nom@kyntus.fr"
+                    type="text"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({...editForm, username: e.target.value})}
+                    placeholder="Laisser vide pour garder l'actuel"
                   />
                 </div>
                 <div className={styles.formGroup}>

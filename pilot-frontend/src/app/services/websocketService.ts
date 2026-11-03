@@ -1,8 +1,8 @@
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-// ⚠️ THE FIX: URL dyal WebSocket f Serveur 10.10.10.25
-const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://10.10.10.25:6225/ws';
+// Vide = same-origin '/ws' (Nginx kaydouzha l backend)
+const SOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || '/ws';
 
 export const createWebSocketClient = (onMessageReceived: (message: any) => void) => {
     const client = new Client({

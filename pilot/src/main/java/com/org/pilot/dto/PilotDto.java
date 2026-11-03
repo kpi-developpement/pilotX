@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class PilotDto {
     private Long id;
     private String name;
-    private String email;
+    private String username;
     private PilotStatus status;
     private LocalDateTime lastUpdated;
     private Long dailyPauseTime;

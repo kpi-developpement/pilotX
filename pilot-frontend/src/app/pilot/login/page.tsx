@@ -9,7 +9,7 @@ import { api, ApiError, PilotAuthResponse, PILOT_TOKEN_KEY, savePilotSession, st
 
 export default function PilotLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,7 @@ export default function PilotLogin() {
     try {
       const res = await api<PilotAuthResponse>('/api/v1/pilots/login', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
       savePilotSession(res);
       router.push('/pilot');
@@ -40,7 +40,7 @@ export default function PilotLogin() {
     <AuthShell
       kicker="Terminal pilote"
       headline={<>Pointez.<br />Changez de statut.<br /><em>En un clic.</em></>}
-      lead="Connectez-vous avec votre email professionnel et indiquez votre statut. Votre superviseur le voit instantanément."
+      lead="Connectez-vous et indiquez votre statut. Votre superviseur le voit instantanément sur son tableau de bord."
     >
       <div className={styles.tabs}>
         <span className={`${styles.tab} ${styles.tabActive}`}>Connexion</span>
@@ -52,8 +52,9 @@ export default function PilotLogin() {
 
       <form className={styles.form} onSubmit={handleSubmit}>
         <ErrorBox message={error} />
-        <Field label="Email" icon="mail" type="email" placeholder="prenom.nom@kyntus.fr" autoComplete="email"
-          required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Field label="Identifiant" icon="at" type="text" placeholder="ex : yassine.a" autoComplete="username"
+          autoCapitalize="none" spellCheck={false} required autoFocus
+          value={username} onChange={(e) => setUsername(e.target.value)} />
         <Field label="Mot de passe" icon="lock" type="password" placeholder="••••••••" autoComplete="current-password"
           required value={password} onChange={(e) => setPassword(e.target.value)} />
         <SubmitButton loading={loading}>Se connecter</SubmitButton>

@@ -1,4 +1,5 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
+// Vide = same-origin (Nginx kaydouz /api l backend) → walou mochkil dyal certificat
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const PILOT_TOKEN_KEY = 'pilotToken';
 export const PILOT_KEY = 'pilot';
@@ -10,7 +11,7 @@ export type PilotStatus = 'WORKING' | 'PAUSE_10MIN' | 'PAUSE_1H' | 'TOILET' | 'P
 export interface PilotData {
   id: number;
   name: string;
-  email: string;
+  username: string;
   status: PilotStatus;
   lastUpdated: string;
   dailyPauseTime: number;
