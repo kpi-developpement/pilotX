@@ -9,8 +9,8 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   font-family: var(--font-body, system-ui), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #07090d;
-  color: #eef0f5;
+  background-color: #0c1220;
+  color: #f5f7fc;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -19,12 +19,12 @@ a {
   text-decoration: none;
 }
 
-::selection { background: rgba(212, 255, 63, 0.35); color: #fff; }
+::selection { background: rgba(200, 255, 46, 0.35); color: #fff; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 10px; border: 2px solid #07090d; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; border: 2px solid #0c1220; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); }
 
 /* ================= PILOTX FX (global) ================= */
@@ -46,20 +46,7 @@ a {
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
-}
-
-/* Bordure lumineuse qui suit la souris (visible même sur les cartes voisines) */
-.fx-spot::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  background: radial-gradient(300px circle at var(--mx) var(--my), color-mix(in srgb, var(--c, #d4ff3f) 75%, white), transparent 60%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0.55;
+  contain: strict;
 }
 
 /* Lueur intérieure au survol */
@@ -68,17 +55,18 @@ a {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(420px circle at var(--mx) var(--my), color-mix(in srgb, var(--c, #d4ff3f) 12%, transparent), transparent 55%);
+  background: radial-gradient(380px circle at var(--mx) var(--my), color-mix(in srgb, var(--c, #c8ff2e) 16%, transparent), transparent 60%);
   opacity: 0;
   transition: opacity 0.35s;
 }
 
 [data-spot]:hover > .fx-spot::after { opacity: 1; }
+[data-spot]:hover { border-color: color-mix(in srgb, var(--c, #c8ff2e) 55%, transparent) !important; }
+[data-tilt]:hover { will-change: transform; }
 
 /* Tilt & magnétique: transitions douces */
 [data-tilt] {
   transform-style: preserve-3d;
-  will-change: transform;
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s, box-shadow 0.3s, background 0.3s !important;
 }
 
@@ -105,7 +93,7 @@ a {
 
 /* Entrée de page (stagger avec style --i) */
 .fx-in {
-  animation: fx-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: fx-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 

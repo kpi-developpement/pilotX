@@ -4,11 +4,13 @@ import com.org.pilot.dto.*;
 import com.org.pilot.exception.ResourceNotFoundException;
 import com.org.pilot.service.PilotService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -56,9 +58,11 @@ public class PilotController {
     @PatchMapping("/me/status")
     public ResponseEntity<?> updateMyStatus(Authentication auth, @RequestBody PilotStatusUpdateRequest request) {
         try {
-            return ResponseEntity.ok(pilotService.updatePilotStatus(currentPilotId(auth), request));
+            return ResponseEntity.ok(pilotService.updatePilotStatus(currentPilotId(auth), request, false));
         } catch (ResourceNotFoundException e) {
             return error(HttpStatus.UNAUTHORIZED, "Compte introuvable.");
+        } catch (IllegalStateException e) {
+            return error(HttpStatus.CONFLICT, e.getMessage()); // Journée clôturée
         } catch (IllegalArgumentException e) {
             return error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
@@ -73,13 +77,29 @@ public class PilotController {
     }
 
     @GetMapping("/{id}/logs")
-    public ResponseEntity<List<PilotLogDto>> getPilotLogs(@PathVariable Long id) {
-        return ResponseEntity.ok(pilotService.getPilotLogs(id));
+    public ResponseEntity<List<PilotLogDto>> getPilotLogs(
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(pilotService.getPilotLogs(id, from, to));
     }
 
+    // 📅 Historique dyal ga3 les pilotes (ex: ?from=2026-11-01&to=2026-11-30)
+    @GetMapping("/history")
+    public ResponseEntity<?> getHistory(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        try {
+            return ResponseEntity.ok(pilotService.getHistory(from, to));
+        } catch (IllegalArgumentException e) {
+            return error(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    // L'admin y9der ybdel status (7ta ila nhar msdoud → débloquer)
     @PatchMapping("/{id}/status")
     public ResponseEntity<PilotDto> updatePilotStatus(@PathVariable Long id, @RequestBody PilotStatusUpdateRequest request) {
-        return ResponseEntity.ok(pilotService.updatePilotStatus(id, request));
+        return ResponseEntity.ok(pilotService.updatePilotStatus(id, request, true));
     }
 
     @PutMapping("/{id}")

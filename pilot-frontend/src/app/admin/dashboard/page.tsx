@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createWebSocketClient } from '../../services/websocketService';
 import styles from './page.module.css';
 import FxLayer, { AnimatedNumber, fxBurst, Spot } from '../../components/Fx';
+import History from './History';
 import { ADMIN_TOKEN_KEY, api, ApiError, storage } from '../../lib/api';
 
 type Status = 'WORKING' | 'PAUSE_10MIN' | 'PAUSE_1H' | 'TOILET' | 'PRAYER' | 'FIN_SERVICE';
@@ -17,6 +18,7 @@ interface Pilot {
   lastUpdated: string;
   dailyPauseTime: number;
   secondsInStatus?: number;
+  dayClosed?: boolean;
   receivedAt?: number; // client: wa9t fach wslat l'data
 }
 
@@ -29,12 +31,12 @@ interface PilotLog {
 }
 
 const META: Record<Status, { label: string; color: string; limit?: number }> = {
-  WORKING: { label: 'En service', color: '#34d399' },
-  PAUSE_10MIN: { label: 'Pause courte', color: '#fbbf24', limit: 10 },
-  PAUSE_1H: { label: 'Déjeuner', color: '#fb923c', limit: 60 },
-  TOILET: { label: 'Toilettes', color: '#60a5fa' },
-  PRAYER: { label: 'Prière', color: '#a78bfa' },
-  FIN_SERVICE: { label: 'Hors service', color: '#6b7280' },
+  WORKING: { label: 'En service', color: '#2ee6a6' },
+  PAUSE_10MIN: { label: 'Pause courte', color: '#ffcc33', limit: 10 },
+  PAUSE_1H: { label: 'Déjeuner', color: '#ff8f4a', limit: 60 },
+  TOILET: { label: 'Toilettes', color: '#5aa9ff' },
+  PRAYER: { label: 'Prière', color: '#b794ff' },
+  FIN_SERVICE: { label: 'Hors service', color: '#8b93a7' },
 };
 const PAUSES: Status[] = ['PAUSE_10MIN', 'PAUSE_1H', 'TOILET', 'PRAYER'];
 const FILTERS: (Status | 'ALL' | 'PAUSE')[] = ['ALL', 'WORKING', 'PAUSE', ...PAUSES, 'FIN_SERVICE'];
@@ -52,6 +54,7 @@ const fmtDur = (s: number) => {
 const hhmm = (iso?: string) => (iso && iso.length >= 16 ? iso.slice(11, 16) : '--:--');
 const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const stamp = (p: Pilot): Pilot => ({ ...p, receivedAt: Date.now() });
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -62,6 +65,8 @@ export default function AdminDashboard() {
   const [now, setNow] = useState(Date.now());
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('ALL');
   const [query, setQuery] = useState('');
+  const [view, setView] = useState<'live' | 'history'>('live');
+  const [unlocking, setUnlocking] = useState(false);
 
   const [selected, setSelected] = useState<Pilot | null>(null);
   const [logs, setLogs] = useState<PilotLog[]>([]);
@@ -163,7 +168,8 @@ export default function AdminDashboard() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      setLogs(await api<PilotLog[]>(`/api/v1/pilots/${p.id}/logs`, { token }));
+      const d = todayISO();
+      setLogs(await api<PilotLog[]>(`/api/v1/pilots/${p.id}/logs?from=${d}&to=${d}`, { token }));
     } catch (err) {
       if (!handleAuthError(err)) console.error(err);
     } finally {
@@ -200,8 +206,24 @@ export default function AdminDashboard() {
     }
   };
 
-  // Stats dyal pilote
-  const pilotStats = useMemo(() => PAUSES.map((s) => {
+  // Débloquer la journée (après une Fin de service par erreur)
+  const unlockDay = async () => {
+    if (!selected) return;
+    setUnlocking(true);
+    setFormError('');
+    try {
+      const up = stamp(await api<Pilot>(`/api/v1/pilots/${selected.id}/status`, { method: 'PATCH', token, body: JSON.stringify({ status: 'WORKING' }) }));
+      setPilots((prev) => prev.map((x) => (x.id === up.id ? up : x)));
+      setSelected(up);
+    } catch (err) {
+      if (!handleAuthError(err)) setFormError(err instanceof ApiError ? err.message : 'Erreur réseau.');
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
+  // Stats dyal pilote (lyouma)
+  const pilotStats = useMemo(() => (['WORKING', ...PAUSES] as Status[]).map((s) => {
     const items = logs.filter((l) => l.status === s);
     return { s, count: items.length, total: items.reduce((a, l) => a + (l.durationSeconds || 0), 0) };
   }), [logs]);
@@ -222,6 +244,17 @@ export default function AdminDashboard() {
         <div className={styles.logo}>
           <span className={styles.logoMark}>P</span>PilotX<small>ADMIN</small>
         </div>
+        <div className={styles.viewSwitch} role="tablist">
+          <span className={styles.viewPill} style={{ transform: view === 'history' ? 'translateX(100%)' : 'none' }} />
+          <button role="tab" aria-selected={view === 'live'} className={view === 'live' ? styles.viewOn : ''} onClick={() => setView('live')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M4.9 19.1a10 10 0 0 1 0-14.2M19.1 4.9a10 10 0 0 1 0 14.2" /></svg>
+            Live
+          </button>
+          <button role="tab" aria-selected={view === 'history'} className={view === 'history' ? styles.viewOn : ''} onClick={() => setView('history')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
+            Historique
+          </button>
+        </div>
         <div className={styles.topRight}>
           <span className={`${styles.livePill} ${live ? styles.liveOn : ''}`}><i />{live ? 'Live' : 'Connexion…'}</span>
           <span className={styles.clock}>{clock}</span>
@@ -232,6 +265,11 @@ export default function AdminDashboard() {
         </div>
       </header>
 
+      {view === 'history' ? (
+        <main className={styles.main}>
+          <History token={token} pilots={pilots} meta={META} onAuthError={handleAuthError} />
+        </main>
+      ) : (
       <main className={styles.main}>
         <div className={`${styles.titleRow} fx-in`}>
           <div>
@@ -260,12 +298,12 @@ export default function AdminDashboard() {
             <span className={styles.kpiLabel}><i />En service</span>
             <strong className={styles.kpiValue}><AnimatedNumber value={counts.WORKING || 0} /></strong>
           </div>
-          <div className={`${styles.kpi} fx-in`} style={{ ['--c' as string]: '#fbbf24', ['--i' as string]: 3 }} data-spot>
+          <div className={`${styles.kpi} fx-in`} style={{ ['--c' as string]: '#ffcc33', ['--i' as string]: 3 }} data-spot>
             <Spot />
             <span className={styles.kpiLabel}><i />En pause</span>
             <strong className={styles.kpiValue}><AnimatedNumber value={counts.PAUSE || 0} /></strong>
           </div>
-          <div className={`${styles.kpi} ${overCount ? styles.kpiDanger : ''} fx-in`} style={{ ['--c' as string]: '#ff6b6b', ['--i' as string]: 4 }} data-spot>
+          <div className={`${styles.kpi} ${overCount ? styles.kpiDanger : ''} fx-in`} style={{ ['--c' as string]: '#ff6385', ['--i' as string]: 4 }} data-spot>
             <Spot />
             <span className={styles.kpiLabel}><i />Dépassements</span>
             <strong className={styles.kpiValue}><AnimatedNumber value={overCount} /></strong>
@@ -277,7 +315,7 @@ export default function AdminDashboard() {
           <div className={styles.filters}>
             {FILTERS.map((f) => {
               const label = f === 'ALL' ? 'Tous' : f === 'PAUSE' ? 'Toutes pauses' : META[f].label;
-              const color = f === 'ALL' ? '#d4ff3f' : f === 'PAUSE' ? '#fbbf24' : META[f].color;
+              const color = f === 'ALL' ? '#c8ff2e' : f === 'PAUSE' ? '#ffcc33' : META[f].color;
               return (
                 <button key={f} className={`${styles.chip} ${filter === f ? styles.chipOn : ''}`}
                   style={{ ['--c' as string]: color }} onClick={() => setFilter(f)} data-ripple>
@@ -305,7 +343,7 @@ export default function AdminDashboard() {
             const pct = m.limit ? Math.min(el / (m.limit * 60), 1) : 0;
             return (
               <button key={p.id} className={`${styles.card} ${over ? styles.cardOver : ''} ${off ? styles.cardOff : ''}`}
-                style={{ ['--c' as string]: over ? '#ff6b6b' : m.color, animationDelay: `${Math.min(idx, 12) * 45}ms` }}
+                style={{ ['--c' as string]: over ? '#ff6385' : m.color, animationDelay: `${Math.min(idx, 12) * 45}ms` }}
                 onClick={() => openPilot(p)} data-pid={p.id} data-spot data-tilt="6" data-ripple>
                 <Spot />
                 <div className={styles.cardTop}>
@@ -319,7 +357,7 @@ export default function AdminDashboard() {
 
                 <div className={styles.timerRow}>
                   <span className={styles.timer}>{off ? '—' : fmtClock(el)}</span>
-                  <span className={styles.timerSub}>{off ? `Déconnecté à ${hhmm(p.lastUpdated)}` : `depuis ${hhmm(p.lastUpdated)}`}</span>
+                  <span className={styles.timerSub}>{off ? (p.dayClosed ? `🔒 Journée clôturée à ${hhmm(p.lastUpdated)}` : `Déconnecté à ${hhmm(p.lastUpdated)}`) : `depuis ${hhmm(p.lastUpdated)}`}</span>
                 </div>
 
                 <div className={styles.limitBar}>
@@ -343,6 +381,7 @@ export default function AdminDashboard() {
           )}
         </section>
       </main>
+      )}
 
       {/* ---------- Drawer détails ---------- */}
       {selected && (
@@ -364,6 +403,16 @@ export default function AdminDashboard() {
               <span className={styles.dTimer}>{selected.status === 'FIN_SERVICE' ? '—' : fmtClock(elapsedOf(selected))}</span>
             </div>
 
+            {selected.dayClosed && (
+              <div className={styles.unlock}>
+                <div>
+                  <strong>🔒 Journée clôturée</strong>
+                  <span>Ce pilote a terminé son service à {hhmm(selected.lastUpdated)}. Il ne peut plus pointer aujourd&apos;hui.</span>
+                </div>
+                <button onClick={unlockDay} disabled={unlocking} data-ripple>{unlocking ? '…' : 'Débloquer'}</button>
+              </div>
+            )}
+
             <div className={styles.dTabs}>
               <button className={!editing ? styles.dTabOn : ''} onClick={() => setEditing(false)}>Activité</button>
               <button className={editing ? styles.dTabOn : ''} onClick={() => { setEditing(true); setConfirmDelete(false); }}>Modifier</button>
@@ -381,10 +430,10 @@ export default function AdminDashboard() {
                   ))}
                 </div>
 
-                <h3 className={styles.dTitle}>Historique</h3>
+                <h3 className={styles.dTitle}>Aujourd&apos;hui</h3>
                 <div className={styles.timeline}>
                   {logsLoading && <p className={styles.muted}>Chargement…</p>}
-                  {!logsLoading && logs.length === 0 && <p className={styles.muted}>Aucune pause enregistrée.</p>}
+                  {!logsLoading && logs.length === 0 && <p className={styles.muted}>Aucune activité enregistrée aujourd&apos;hui.</p>}
                   {logs.map((l) => {
                     const lim = META[l.status]?.limit;
                     return (

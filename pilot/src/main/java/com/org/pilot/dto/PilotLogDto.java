@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Builder
 public class PilotLogDto {
     private Long id;
+    private Long pilotId;
     private PilotStatus status;
     private LocalDateTime startTime;
     private LocalDateTime endTime;

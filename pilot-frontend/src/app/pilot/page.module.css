@@ -1,12 +1,12 @@
 /* ========== PILOTX — DASHBOARD PILOTE ========== */
 .page {
-  --ink: #0a0c11;
-  --panel: #10131a;
-  --line: rgba(255, 255, 255, 0.08);
-  --text: #eceef3;
-  --muted: #8a92a6;
-  --accent: #d4ff3f;
-  --status: #34d399;
+  --ink: #0c1220;
+  --panel: #141b2c;
+  --line: rgba(255, 255, 255, 0.1);
+  --text: #f5f7fc;
+  --muted: #9ca7c2;
+  --accent: #c8ff2e;
+  --status: #2ee6a6;
 
   position: relative;
   min-height: 100vh;
@@ -71,7 +71,7 @@
   display: grid;
   place-items: center;
   font-weight: 700;
-  background: #1a1f29;
+  background: #232d47;
   border: 2px solid var(--status);
   transition: border-color 0.4s;
 }
@@ -92,7 +92,7 @@
   cursor: pointer;
   transition: 0.2s;
 }
-.ghostBtn:hover { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.4); }
+.ghostBtn:hover { color: #ff6385; border-color: rgba(255, 99, 133, 0.4); }
 .ghostBtn svg { width: 18px; height: 18px; }
 
 /* ---------- Main ---------- */
@@ -162,7 +162,7 @@
   font-weight: 700;
 }
 
-.sinceText b.over { color: #ff6b6b; }
+.sinceText b.over { color: #ff6385; }
 
 .overTag {
   font-style: normal;
@@ -170,8 +170,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #ff6b6b;
-  border: 1px solid rgba(255, 107, 107, 0.4);
+  color: #ff6385;
+  border: 1px solid rgba(255, 99, 133, 0.4);
   padding: 3px 8px;
   border-radius: 999px;
 }
@@ -181,7 +181,7 @@
   width: min(360px, 100%);
   height: 6px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.09);
   overflow: hidden;
 }
 
@@ -193,7 +193,7 @@
   transition: width 1s linear;
 }
 
-.progress span.progressOver { background: #ff6b6b; }
+.progress span.progressOver { background: #ff6385; }
 
 .metrics { display: flex; gap: 12px; }
 
@@ -217,9 +217,9 @@
   margin-bottom: 20px;
   padding: 12px 16px;
   border-radius: 12px;
-  background: rgba(255, 107, 107, 0.08);
-  border: 1px solid rgba(255, 107, 107, 0.25);
-  color: #ffb4b4;
+  background: rgba(255, 99, 133, 0.08);
+  border: 1px solid rgba(255, 99, 133, 0.25);
+  color: #ffb8c7;
   font-size: 0.9rem;
 }
 
@@ -315,9 +315,9 @@
   width: 100%;
   height: 58px;
   border-radius: 16px;
-  border: 1px dashed rgba(255, 107, 107, 0.4);
+  border: 1px dashed rgba(255, 99, 133, 0.4);
   background: transparent;
-  color: #ff8a8a;
+  color: #ff8aa3;
   font-family: inherit;
   font-weight: 700;
   font-size: 0.98rem;
@@ -325,10 +325,10 @@
   transition: 0.25s;
 }
 
-.finBtn:hover:not(:disabled) { background: rgba(255, 107, 107, 0.06); border-style: solid; }
+.finBtn:hover:not(:disabled) { background: rgba(255, 99, 133, 0.06); border-style: solid; }
 
 .finConfirm {
-  background: #ff6b6b !important;
+  background: #ff6385 !important;
   color: var(--ink);
   border-style: solid;
   animation: nudge 0.4s;
@@ -342,7 +342,7 @@
   margin-top: 26px;
   text-align: center;
   font-size: 0.8rem;
-  color: #5c6478;
+  color: #6e7894;
 }
 
 .shortcut kbd {
@@ -359,13 +359,13 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: #0a0c11;
+  background: #0c1220;
 }
 
 .loader, .loaderSm {
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #d4ff3f;
+  border-top-color: #c8ff2e;
   animation: spin 0.8s linear infinite;
 }
 
@@ -404,3 +404,35 @@
 .tileActive .tileIcon { animation: iconPop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1); }
 @keyframes iconPop { 40% { transform: scale(1.25) rotate(-6deg); } }
 .tile:hover .tileIcon { transform: translateZ(30px) scale(1.06); transition: transform 0.25s; }
+
+/* ---------- Journée clôturée ---------- */
+.lockBanner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 99, 133, 0.35);
+  background: linear-gradient(90deg, rgba(255, 99, 133, 0.12), rgba(255, 99, 133, 0.03));
+}
+
+.lockBanner div { display: flex; flex-direction: column; gap: 3px; }
+.lockBanner strong { font-size: 1rem; }
+.lockBanner span { color: var(--muted); font-size: 0.86rem; }
+
+.lockIcon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #ff6385;
+  background: rgba(255, 99, 133, 0.14);
+}
+
+.lockIcon svg { width: 22px; height: 22px; }
+
+.gridLocked .tile { opacity: 0.38; filter: grayscale(0.7); cursor: not-allowed; }
+.gridLocked .tile:hover { transform: none !important; }

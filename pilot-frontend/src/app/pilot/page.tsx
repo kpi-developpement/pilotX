@@ -19,19 +19,19 @@ interface StatusDef {
 }
 
 const STATUSES: StatusDef[] = [
-  { type: 'WORKING', label: 'En service', hint: 'Disponible', color: '#34d399',
+  { type: 'WORKING', label: 'En service', hint: 'Disponible', color: '#2ee6a6',
     icon: <><path d="M12 2v4" /><path d="m4.9 4.9 2.8 2.8" /><circle cx="12" cy="14" r="7" /><path d="M12 11v3l2 2" /></> },
-  { type: 'PAUSE_10MIN', label: 'Pause courte', hint: '10 min', color: '#fbbf24', limitMin: 10,
+  { type: 'PAUSE_10MIN', label: 'Pause courte', hint: '10 min', color: '#ffcc33', limitMin: 10,
     icon: <><path d="M17 8h1a4 4 0 0 1 0 8h-1" /><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" /><path d="M6 2v2M10 2v2M14 2v2" /></> },
-  { type: 'PAUSE_1H', label: 'Déjeuner', hint: '1 heure', color: '#fb923c', limitMin: 60,
+  { type: 'PAUSE_1H', label: 'Déjeuner', hint: '1 heure', color: '#ff8f4a', limitMin: 60,
     icon: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" /></> },
-  { type: 'TOILET', label: 'Toilettes', hint: 'Courte absence', color: '#60a5fa',
+  { type: 'TOILET', label: 'Toilettes', hint: 'Courte absence', color: '#5aa9ff',
     icon: <><circle cx="12" cy="5" r="2" /><path d="M9 22v-6H7l2-7h6l2 7h-2v6" /></> },
-  { type: 'PRAYER', label: 'Prière', hint: 'Salat', color: '#a78bfa',
+  { type: 'PRAYER', label: 'Prière', hint: 'Salat', color: '#b794ff',
     icon: <><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></> },
 ];
 
-const FIN: StatusDef = { type: 'FIN_SERVICE', label: 'Fin de service', hint: '', color: '#ff6b6b', icon: null };
+const FIN: StatusDef = { type: 'FIN_SERVICE', label: 'Fin de service', hint: '', color: '#ff6385', icon: null };
 const ALL = [...STATUSES, FIN];
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -86,7 +86,7 @@ export default function PilotDashboard() {
   }, []);
 
   const updateStatus = useCallback(async (status: PilotStatus, origin?: { x: number; y: number }) => {
-    if (!pilot || pending || pilot.status === status) return;
+    if (!pilot || pending || pilot.status === status || pilot.dayClosed) return;
     const token = storage.get(PILOT_TOKEN_KEY);
     setPending(status);
     setError('');
@@ -101,9 +101,13 @@ export default function PilotDashboard() {
       storage.set(PILOT_SINCE_KEY, `${status}|${t}`);
       const o = origin ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
       fxBurst(o.x, o.y, ALL.find((s) => s.type === status)?.color, 1.4);
-      if (status === 'FIN_SERVICE') setTimeout(logout, 1600);
+      if (status === 'FIN_SERVICE') setTimeout(logout, 2600);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) return logout();
+      if (e instanceof ApiError && e.status === 409) {
+        // Journée déjà clôturée côté serveur
+        setPilot((p) => (p ? { ...p, status: 'FIN_SERVICE', dayClosed: true } : p));
+      }
       setError(e instanceof ApiError ? e.message : 'Erreur de connexion au serveur.');
     } finally {
       setPending(null);
@@ -143,6 +147,7 @@ export default function PilotDashboard() {
   const overLimit = current.limitMin ? elapsed > current.limitMin * 60 : false;
   const progress = current.limitMin ? Math.min(elapsed / (current.limitMin * 60), 1) : 0;
   const firstName = pilot.name.split(' ')[0];
+  const locked = !!pilot.dayClosed;
   const clock = new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const today = new Date(now).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -173,7 +178,11 @@ export default function PilotDashboard() {
               <span className={styles.statusDot} />
               <h1 className={styles.statusLabel}>{current.label}</h1>
             </div>
+            {locked ? (
+              <p className={styles.sinceText}>Journée clôturée · reprise demain</p>
+            ) : (
             <p className={styles.sinceText}>depuis <b className={overLimit ? styles.over : ''}>{fmtClock(elapsed)}</b>{overLimit && <em className={styles.overTag}>Dépassement</em>}</p>
+            )}
             {current.limitMin && (
               <div className={styles.progress}><span style={{ width: `${progress * 100}%` }} className={overLimit ? styles.progressOver : ''} /></div>
             )}
@@ -185,9 +194,21 @@ export default function PilotDashboard() {
           </div>
         </section>
 
-        {error && <div className={styles.error}>{error}</div>}
+        {locked && (
+          <div className={`${styles.lockBanner} fx-in`}>
+            <span className={styles.lockIcon}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+            </span>
+            <div>
+              <strong>Service terminé pour aujourd&apos;hui</strong>
+              <span>Le pointage est verrouillé jusqu&apos;à demain. Contactez votre superviseur en cas d&apos;erreur.</span>
+            </div>
+          </div>
+        )}
 
-        <section className={styles.grid}>
+        {error && !locked && <div className={styles.error}>{error}</div>}
+
+        <section className={`${styles.grid} ${locked ? styles.gridLocked : ''}`}>
           {STATUSES.map((s, i) => {
             const active = pilot.status === s.type;
             return (
@@ -195,9 +216,9 @@ export default function PilotDashboard() {
                 key={s.type}
                 className={`${styles.tile} ${active ? styles.tileActive : ''} fx-in`}
                 style={{ ['--c' as string]: s.color, ['--i' as string]: i + 1 }}
-                data-spot data-tilt="10" data-ripple
+                data-spot data-tilt={locked ? undefined : '10'} data-ripple
                 onClick={(e) => updateStatus(s.type, { x: e.clientX, y: e.clientY })}
-                disabled={!!pending}
+                disabled={!!pending || locked}
                 aria-pressed={active}
               >
                 <Spot />
@@ -220,7 +241,7 @@ export default function PilotDashboard() {
           onClick={handleFin}
           disabled={!!pending || pilot.status === 'FIN_SERVICE'}
         >
-          {pilot.status === 'FIN_SERVICE'
+          {locked || pilot.status === 'FIN_SERVICE'
             ? 'Service terminé — à demain 👋'
             : pending === 'FIN_SERVICE' ? 'Clôture…'
             : confirmFin ? 'Cliquez encore pour confirmer la fin de service'

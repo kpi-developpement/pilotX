@@ -20,4 +20,5 @@ public class PilotDto {
     private LocalDateTime lastUpdated;
     private Long dailyPauseTime;
     private Long secondsInStatus; // 7seb f serveur → walou mochkil dyal timezone
+    private Boolean dayClosed;    // dar Fin de service lyouma → msdoud 7ta l'ghedda
 }

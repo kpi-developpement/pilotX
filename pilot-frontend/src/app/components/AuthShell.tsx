@@ -5,11 +5,11 @@ import styles from '../styles/auth.module.css';
 import FxLayer, { Spot } from './Fx';
 
 export const STATUS_META = [
-  { key: 'WORKING', label: 'En service', color: '#34d399' },
-  { key: 'PAUSE_10MIN', label: 'Pause courte', color: '#fbbf24' },
-  { key: 'PAUSE_1H', label: 'Déjeuner', color: '#fb923c' },
-  { key: 'TOILET', label: 'Toilettes', color: '#60a5fa' },
-  { key: 'PRAYER', label: 'Prière', color: '#a78bfa' },
+  { key: 'WORKING', label: 'En service', color: '#2ee6a6' },
+  { key: 'PAUSE_10MIN', label: 'Pause courte', color: '#ffcc33' },
+  { key: 'PAUSE_1H', label: 'Déjeuner', color: '#ff8f4a' },
+  { key: 'TOILET', label: 'Toilettes', color: '#5aa9ff' },
+  { key: 'PRAYER', label: 'Prière', color: '#b794ff' },
 ];
 
 /* ---------- Démo animée du tableau de bord (décoratif) ---------- */
@@ -38,7 +38,7 @@ function LiveBoard() {
       <div className={styles.boardHead}>
         <span className={styles.boardTitle}><span className={styles.liveDot} />Live</span>
         <span className={styles.boardStats}>
-          <b style={{ color: '#34d399' }}>{working}</b> en service · <b style={{ color: '#fbbf24' }}>{rows.length - working}</b> en pause
+          <b style={{ color: '#2ee6a6' }}>{working}</b> en service · <b style={{ color: '#ffcc33' }}>{rows.length - working}</b> en pause
         </span>
       </div>
       {rows.map((r) => (

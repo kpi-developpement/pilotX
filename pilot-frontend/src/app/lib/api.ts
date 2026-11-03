@@ -15,6 +15,8 @@ export interface PilotData {
   status: PilotStatus;
   lastUpdated: string;
   dailyPauseTime: number;
+  secondsInStatus?: number;
+  dayClosed?: boolean; // Fin de service lyouma → bloqué 7ta l'ghedda
 }
 
 export interface PilotAuthResponse {

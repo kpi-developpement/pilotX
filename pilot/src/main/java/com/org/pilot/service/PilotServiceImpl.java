@@ -48,16 +48,32 @@ public class PilotServiceImpl implements PilotService {
     }
 
     @Override
-    public List<PilotLogDto> getPilotLogs(Long pilotId) {
-        return logRepository.findByPilotIdOrderByStartTimeDesc(pilotId).stream()
-                .map(log -> PilotLogDto.builder()
-                        .id(log.getId())
-                        .status(log.getStatus())
-                        .startTime(log.getStartTime())
-                        .endTime(log.getEndTime())
-                        .durationSeconds(log.getDurationSeconds())
-                        .build())
-                .collect(Collectors.toList());
+    public List<PilotLogDto> getPilotLogs(Long pilotId, LocalDate from, LocalDate to) {
+        List<PilotStatusLog> logs = (from == null || to == null)
+                ? logRepository.findByPilotIdOrderByStartTimeDesc(pilotId)
+                : logRepository.findByPilotIdAndStartTimeBetweenOrderByStartTimeDesc(
+                pilotId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        return logs.stream().map(this::mapLog).collect(Collectors.toList());
+    }
+
+    // 📅 Historique global (ex: chhar kaml) — l'admin
+    @Override
+    public List<PilotLogDto> getHistory(LocalDate from, LocalDate to) {
+        if (from == null || to == null || to.isBefore(from)) throw new IllegalArgumentException("Période invalide.");
+        if (from.plusDays(93).isBefore(to)) throw new IllegalArgumentException("Période trop longue (max 3 mois).");
+        return logRepository.findByStartTimeBetweenOrderByStartTimeAsc(from.atStartOfDay(), to.plusDays(1).atStartOfDay())
+                .stream().map(this::mapLog).collect(Collectors.toList());
+    }
+
+    private PilotLogDto mapLog(PilotStatusLog log) {
+        return PilotLogDto.builder()
+                .id(log.getId())
+                .pilotId(log.getPilot().getId())
+                .status(log.getStatus())
+                .startTime(log.getStartTime())
+                .endTime(log.getEndTime())
+                .durationSeconds(log.getDurationSeconds())
+                .build();
     }
 
     // ==========================================
@@ -115,17 +131,14 @@ public class PilotServiceImpl implements PilotService {
 
     @Override
     @Transactional
-    public PilotDto updatePilotStatus(Long id, PilotStatusUpdateRequest request) {
+    public PilotDto updatePilotStatus(Long id, PilotStatusUpdateRequest request, boolean byAdmin) {
         Pilot pilot = findPilot(id);
         PilotStatus newStatus = request.getStatus();
         if (newStatus == null) throw new IllegalArgumentException("Status obligatoire.");
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate today = LocalDate.now();
-        if (pilot.getLastActiveDate() == null || !pilot.getLastActiveDate().isEqual(today)) {
-            pilot.setDailyPauseTime(0L);
-            pilot.setLastActiveDate(today);
-            pilot.setPauseStartTime(null);
+        // 🔒 Dar Fin de service lyouma → ma y9derch ybdel 7ta l'ghedda (ghir l'admin)
+        if (isDayClosed(pilot) && !byAdmin) {
+            throw new IllegalStateException("Service terminé pour aujourd'hui. Revenez demain.");
         }
 
         PilotStatus oldStatus = pilot.getStatus();
@@ -133,20 +146,34 @@ public class PilotServiceImpl implements PilotService {
             return mapToDto(pilot); // Nfs status, walou
         }
 
-        // Ila kan f pause (machi WORKING w machi FIN_SERVICE) → n7esbou l'mouda w nsjlou log
-        boolean wasOnPause = oldStatus != null && oldStatus != PilotStatus.WORKING && oldStatus != PilotStatus.FIN_SERVICE;
-        if (wasOnPause && pilot.getPauseStartTime() != null) {
-            long secondsPassed = Duration.between(pilot.getPauseStartTime(), now).getSeconds();
-            long currentTotal = pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L;
-            pilot.setDailyPauseTime(currentTotal + secondsPassed);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+        if (pilot.getLastActiveDate() == null || !pilot.getLastActiveDate().isEqual(today)) {
+            pilot.setDailyPauseTime(0L);
+            pilot.setLastActiveDate(today);
+        }
 
-            logRepository.save(PilotStatusLog.builder()
-                    .pilot(pilot)
-                    .status(oldStatus)
-                    .startTime(pilot.getPauseStartTime())
-                    .endTime(now)
-                    .durationSeconds(secondsPassed)
-                    .build());
+        // 📝 Nsjlou l'segment li sala (service OU pause) → historique kaml
+        if (oldStatus != null && oldStatus != PilotStatus.FIN_SERVICE && pilot.getLastUpdated() != null) {
+            LocalDateTime start = pilot.getLastUpdated();
+            // Ila nsa ysed lbare7 → nsdou l'segment f akhir dak nhar
+            LocalDateTime end = start.toLocalDate().isEqual(today) ? now : start.toLocalDate().atTime(23, 59, 59);
+            long seconds = Math.max(0, Duration.between(start, end).getSeconds());
+
+            if (oldStatus != PilotStatus.WORKING && start.toLocalDate().isEqual(today)) {
+                long currentTotal = pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L;
+                pilot.setDailyPauseTime(currentTotal + seconds);
+            }
+
+            if (seconds > 0) {
+                logRepository.save(PilotStatusLog.builder()
+                        .pilot(pilot)
+                        .status(oldStatus)
+                        .startTime(start)
+                        .endTime(end)
+                        .durationSeconds(seconds)
+                        .build());
+            }
         }
 
         boolean isPause = newStatus != PilotStatus.WORKING && newStatus != PilotStatus.FIN_SERVICE;
@@ -157,6 +184,12 @@ public class PilotServiceImpl implements PilotService {
         PilotDto dto = mapToDto(pilotRepository.save(pilot));
         messagingTemplate.convertAndSend("/topic/pilots", dto);
         return dto;
+    }
+
+    private boolean isDayClosed(Pilot pilot) {
+        return pilot.getStatus() == PilotStatus.FIN_SERVICE
+                && pilot.getLastUpdated() != null
+                && pilot.getLastUpdated().toLocalDate().isEqual(LocalDate.now());
     }
 
     @Override
@@ -216,6 +249,7 @@ public class PilotServiceImpl implements PilotService {
                 .dailyPauseTime(pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L)
                 .secondsInStatus(pilot.getLastUpdated() != null
                         ? Math.max(0, Duration.between(pilot.getLastUpdated(), LocalDateTime.now()).getSeconds()) : 0L)
+                .dayClosed(isDayClosed(pilot))
                 .build();
     }
 }
