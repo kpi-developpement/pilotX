@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createWebSocketClient } from '../../services/websocketService';
 import styles from './page.module.css';
+import FxLayer, { AnimatedNumber, fxBurst, Spot } from '../../components/Fx';
 import { ADMIN_TOKEN_KEY, api, ApiError, storage } from '../../lib/api';
 
 type Status = 'WORKING' | 'PAUSE_10MIN' | 'PAUSE_1H' | 'TOILET' | 'PRAYER' | 'FIN_SERVICE';
@@ -104,6 +105,13 @@ export default function AdminDashboard() {
       const p = stamp({ ...updated, secondsInStatus: updated.secondsInStatus ?? 0 });
       setPilots((prev) => prev.some((x) => x.id === p.id) ? prev.map((x) => (x.id === p.id ? p : x)) : [...prev, p]);
       setSelected((s) => (s && s.id === p.id ? p : s));
+      // Onde sur la carte du pilote qui vient de changer
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-pid="${p.id}"]`);
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        fxBurst(r.left + r.width / 2, r.top + r.height / 2, META[p.status]?.color, 0.8);
+      });
     });
     const origConnect = client.onConnect;
     client.onConnect = (frame) => { setLive(true); origConnect(frame); };
@@ -207,6 +215,7 @@ export default function AdminDashboard() {
   return (
     <div className={styles.page}>
       <div className={styles.bgGlow} aria-hidden />
+      <FxLayer />
 
       {/* ---------- Topbar ---------- */}
       <header className={styles.topbar}>
@@ -216,7 +225,7 @@ export default function AdminDashboard() {
         <div className={styles.topRight}>
           <span className={`${styles.livePill} ${live ? styles.liveOn : ''}`}><i />{live ? 'Live' : 'Connexion…'}</span>
           <span className={styles.clock}>{clock}</span>
-          <button className={styles.ghostBtn} onClick={logout}>
+          <button className={styles.ghostBtn} onClick={logout} data-magnetic data-ripple>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
             <span>Déconnexion</span>
           </button>
@@ -224,10 +233,10 @@ export default function AdminDashboard() {
       </header>
 
       <main className={styles.main}>
-        <div className={styles.titleRow}>
+        <div className={`${styles.titleRow} fx-in`}>
           <div>
             <p className={styles.date}>{today}</p>
-            <h1 className={styles.h1}>Tour de contrôle</h1>
+            <h1 className={styles.h1}>Tour de <span className="fx-shimmer">contrôle</span></h1>
           </div>
           {overCount > 0 && (
             <div className={styles.alert}><span className={styles.alertDot} />{overCount} pilote{overCount > 1 ? 's' : ''} en dépassement de pause</div>
@@ -236,38 +245,42 @@ export default function AdminDashboard() {
 
         {/* ---------- KPIs ---------- */}
         <section className={styles.kpis}>
-          <div className={styles.kpi}>
+          <div className={`${styles.kpi} fx-in`} style={{ ['--i' as string]: 1 }} data-spot>
+            <Spot />
             <span className={styles.kpiLabel}>Pilotes actifs</span>
-            <strong className={styles.kpiValue}>{active}<small>/{pilots.length}</small></strong>
+            <strong className={styles.kpiValue}><AnimatedNumber value={active} /><small>/{pilots.length}</small></strong>
             <div className={styles.segBar}>
               {segs.map((s) => counts[s] ? (
                 <span key={s} title={`${META[s].label}: ${counts[s]}`} style={{ flex: counts[s], background: META[s].color }} />
               ) : null)}
             </div>
           </div>
-          <div className={styles.kpi} style={{ ['--c' as string]: META.WORKING.color }}>
+          <div className={`${styles.kpi} fx-in`} style={{ ['--c' as string]: META.WORKING.color, ['--i' as string]: 2 }} data-spot>
+            <Spot />
             <span className={styles.kpiLabel}><i />En service</span>
-            <strong className={styles.kpiValue}>{counts.WORKING || 0}</strong>
+            <strong className={styles.kpiValue}><AnimatedNumber value={counts.WORKING || 0} /></strong>
           </div>
-          <div className={styles.kpi} style={{ ['--c' as string]: '#fbbf24' }}>
+          <div className={`${styles.kpi} fx-in`} style={{ ['--c' as string]: '#fbbf24', ['--i' as string]: 3 }} data-spot>
+            <Spot />
             <span className={styles.kpiLabel}><i />En pause</span>
-            <strong className={styles.kpiValue}>{counts.PAUSE || 0}</strong>
+            <strong className={styles.kpiValue}><AnimatedNumber value={counts.PAUSE || 0} /></strong>
           </div>
-          <div className={`${styles.kpi} ${overCount ? styles.kpiDanger : ''}`} style={{ ['--c' as string]: '#ff6b6b' }}>
+          <div className={`${styles.kpi} ${overCount ? styles.kpiDanger : ''} fx-in`} style={{ ['--c' as string]: '#ff6b6b', ['--i' as string]: 4 }} data-spot>
+            <Spot />
             <span className={styles.kpiLabel}><i />Dépassements</span>
-            <strong className={styles.kpiValue}>{overCount}</strong>
+            <strong className={styles.kpiValue}><AnimatedNumber value={overCount} /></strong>
           </div>
         </section>
 
         {/* ---------- Toolbar ---------- */}
-        <section className={styles.toolbar}>
+        <section className={`${styles.toolbar} fx-in`} style={{ ['--i' as string]: 5 }}>
           <div className={styles.filters}>
             {FILTERS.map((f) => {
               const label = f === 'ALL' ? 'Tous' : f === 'PAUSE' ? 'Toutes pauses' : META[f].label;
               const color = f === 'ALL' ? '#d4ff3f' : f === 'PAUSE' ? '#fbbf24' : META[f].color;
               return (
                 <button key={f} className={`${styles.chip} ${filter === f ? styles.chipOn : ''}`}
-                  style={{ ['--c' as string]: color }} onClick={() => setFilter(f)}>
+                  style={{ ['--c' as string]: color }} onClick={() => setFilter(f)} data-ripple>
                   {f !== 'ALL' && <i />}{label}<b>{counts[f] || 0}</b>
                 </button>
               );
@@ -283,7 +296,7 @@ export default function AdminDashboard() {
         <section className={styles.grid}>
           {loading && Array.from({ length: 6 }).map((_, i) => <div key={i} className={`${styles.card} ${styles.skeleton}`} />)}
 
-          {!loading && visible.map((p) => {
+          {!loading && visible.map((p, idx) => {
             const m = META[p.status] || META.FIN_SERVICE;
             const el = elapsedOf(p);
             const over = isOver(p);
@@ -292,7 +305,9 @@ export default function AdminDashboard() {
             const pct = m.limit ? Math.min(el / (m.limit * 60), 1) : 0;
             return (
               <button key={p.id} className={`${styles.card} ${over ? styles.cardOver : ''} ${off ? styles.cardOff : ''}`}
-                style={{ ['--c' as string]: over ? '#ff6b6b' : m.color }} onClick={() => openPilot(p)}>
+                style={{ ['--c' as string]: over ? '#ff6b6b' : m.color, animationDelay: `${Math.min(idx, 12) * 45}ms` }}
+                onClick={() => openPilot(p)} data-pid={p.id} data-spot data-tilt="6" data-ripple>
+                <Spot />
                 <div className={styles.cardTop}>
                   <span className={styles.avatar}>{initials(p.name)}</span>
                   <div className={styles.who}>
@@ -402,7 +417,7 @@ export default function AdminDashboard() {
                   <input type="password" placeholder="Laisser vide pour garder l'actuel" value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 </label>
-                <button type="submit" className={styles.saveBtn} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+                <button type="submit" className={styles.saveBtn} disabled={saving} data-ripple>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
 
                 <div className={styles.danger}>
                   <div>

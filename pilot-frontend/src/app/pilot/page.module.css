@@ -14,9 +14,11 @@
   color: var(--text);
   font-family: var(--font-body), system-ui, sans-serif;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .glow {
+  z-index: -2;
   position: fixed;
   top: -280px;
   left: 50%;
@@ -134,6 +136,7 @@
 }
 
 .statusLabel {
+  animation: statusIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
   font-family: var(--font-display), sans-serif;
   font-weight: 800;
   font-size: clamp(2.6rem, 7vw, 4.8rem);
@@ -195,6 +198,8 @@
 .metrics { display: flex; gap: 12px; }
 
 .metric {
+  position: relative;
+  overflow: hidden;
   min-width: 150px;
   padding: 16px 18px;
   border-radius: 14px;
@@ -389,3 +394,13 @@
 @media (prefers-reduced-motion: reduce) {
   .statusDot { animation: none; }
 }
+
+@keyframes statusIn {
+  from { opacity: 0; transform: translateY(14px); filter: blur(8px); letter-spacing: 0; }
+}
+
+.tileIcon, .tileLabel, .tileHint { position: relative; z-index: 1; }
+.key { z-index: 1; }
+.tileActive .tileIcon { animation: iconPop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1); }
+@keyframes iconPop { 40% { transform: scale(1.25) rotate(-6deg); } }
+.tile:hover .tileIcon { transform: translateZ(30px) scale(1.06); transition: transform 0.25s; }

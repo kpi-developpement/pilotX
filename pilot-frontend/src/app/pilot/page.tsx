@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
+import FxLayer, { fxBurst, Spot } from '../components/Fx';
 import {
   api, ApiError, clearPilotSession, PilotData, PilotStatus,
   PILOT_KEY, PILOT_SINCE_KEY, PILOT_TOKEN_KEY, storage,
@@ -84,7 +85,7 @@ export default function PilotDashboard() {
     return () => clearInterval(id);
   }, []);
 
-  const updateStatus = useCallback(async (status: PilotStatus) => {
+  const updateStatus = useCallback(async (status: PilotStatus, origin?: { x: number; y: number }) => {
     if (!pilot || pending || pilot.status === status) return;
     const token = storage.get(PILOT_TOKEN_KEY);
     setPending(status);
@@ -98,6 +99,8 @@ export default function PilotDashboard() {
       setSince(t);
       storage.set(PILOT_KEY, JSON.stringify(updated));
       storage.set(PILOT_SINCE_KEY, `${status}|${t}`);
+      const o = origin ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      fxBurst(o.x, o.y, ALL.find((s) => s.type === status)?.color, 1.4);
       if (status === 'FIN_SERVICE') setTimeout(logout, 1600);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) return logout();
@@ -146,6 +149,7 @@ export default function PilotDashboard() {
   return (
     <div className={styles.page} style={{ ['--status' as string]: current.color }}>
       <div className={styles.glow} />
+      <FxLayer accent={current.color} />
 
       <header className={styles.topbar}>
         <div className={styles.logo}><span className={styles.logoMark}>P</span>PilotX</div>
@@ -155,14 +159,14 @@ export default function PilotDashboard() {
             <strong>{pilot.name}</strong>
             <span>@{pilot.username}</span>
           </div>
-          <button className={styles.ghostBtn} onClick={logout} aria-label="Se déconnecter">
+          <button className={styles.ghostBtn} onClick={logout} aria-label="Se déconnecter" data-magnetic>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
           </button>
         </div>
       </header>
 
       <main className={styles.main}>
-        <section className={styles.hero}>
+        <section className={`${styles.hero} fx-in`}>
           <div className={styles.heroLeft}>
             <p className={styles.greet}>Salut {firstName} · <span>{today}</span></p>
             <div className={styles.statusLine}>
@@ -176,8 +180,8 @@ export default function PilotDashboard() {
           </div>
 
           <div className={styles.metrics}>
-            <div className={styles.metric}><span>Heure</span><strong>{clock}</strong></div>
-            <div className={styles.metric}><span>Pause aujourd&apos;hui</span><strong>{fmtShort(pauseToday)}</strong></div>
+            <div className={styles.metric} data-spot><Spot /><span>Heure</span><strong>{clock}</strong></div>
+            <div className={styles.metric} data-spot><Spot /><span>Pause aujourd&apos;hui</span><strong>{fmtShort(pauseToday)}</strong></div>
           </div>
         </section>
 
@@ -189,12 +193,14 @@ export default function PilotDashboard() {
             return (
               <button
                 key={s.type}
-                className={`${styles.tile} ${active ? styles.tileActive : ''}`}
-                style={{ ['--c' as string]: s.color }}
-                onClick={() => updateStatus(s.type)}
+                className={`${styles.tile} ${active ? styles.tileActive : ''} fx-in`}
+                style={{ ['--c' as string]: s.color, ['--i' as string]: i + 1 }}
+                data-spot data-tilt="10" data-ripple
+                onClick={(e) => updateStatus(s.type, { x: e.clientX, y: e.clientY })}
                 disabled={!!pending}
                 aria-pressed={active}
               >
+                <Spot />
                 <span className={styles.key}>{i + 1}</span>
                 <span className={styles.tileIcon}>
                   {pending === s.type ? <span className={styles.loaderSm} /> :
@@ -208,7 +214,9 @@ export default function PilotDashboard() {
         </section>
 
         <button
-          className={`${styles.finBtn} ${confirmFin ? styles.finConfirm : ''} ${pilot.status === 'FIN_SERVICE' ? styles.finDone : ''}`}
+          className={`${styles.finBtn} ${confirmFin ? styles.finConfirm : ''} ${pilot.status === 'FIN_SERVICE' ? styles.finDone : ''} fx-in`}
+          style={{ ['--i' as string]: 6 }}
+          data-ripple
           onClick={handleFin}
           disabled={!!pending || pilot.status === 'FIN_SERVICE'}
         >

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import styles from '../styles/auth.module.css';
+import FxLayer, { Spot } from './Fx';
 
 export const STATUS_META = [
   { key: 'WORKING', label: 'En service', color: '#34d399' },
@@ -67,6 +68,7 @@ export default function AuthShell({ kicker, headline, lead, badge = 'PILOT', chi
     <div className={styles.page}>
       <div className={styles.aurora} aria-hidden><span /><span /><span /></div>
       <div className={styles.noise} aria-hidden />
+      <FxLayer />
 
       <aside className={styles.brand}>
         <div className={styles.logo}>
@@ -88,7 +90,8 @@ export default function AuthShell({ kicker, headline, lead, badge = 'PILOT', chi
       </aside>
 
       <main className={styles.formSide}>
-        <div className={styles.cardFrame}>
+        <div className={styles.cardFrame} data-spot>
+          <Spot />
           <div className={styles.card}>{children}</div>
         </div>
       </main>
@@ -159,7 +162,7 @@ export function ErrorBox({ message }: { message: string }) {
 
 export function SubmitButton({ loading, children }: { loading: boolean; children: React.ReactNode }) {
   return (
-    <button type="submit" className={styles.submit} disabled={loading}>
+    <button type="submit" className={styles.submit} disabled={loading} data-magnetic data-ripple>
       <span className={styles.submitShine} />
       {loading ? <span className={styles.spinner} /> : <>{children}<Icon name="arrow" /></>}
     </button>

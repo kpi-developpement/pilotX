@@ -25,14 +25,11 @@
 .bgGlow {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -2;
   pointer-events: none;
   background:
     radial-gradient(700px 380px at 12% -8%, rgba(212, 255, 63, 0.09), transparent 70%),
-    radial-gradient(800px 420px at 92% 0%, rgba(94, 234, 212, 0.07), transparent 70%),
-    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 56px 56px,
-    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 56px 56px;
-  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.35) 40%, rgba(0, 0, 0, 0.15) 100%);
+    radial-gradient(800px 420px at 92% 0%, rgba(94, 234, 212, 0.07), transparent 70%);
 }
 
 /* ---------- Topbar ---------- */
@@ -334,7 +331,7 @@
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   transition: transform 0.2s, border-color 0.25s, box-shadow 0.25s;
 }
 
@@ -371,7 +368,7 @@
   to { opacity: 1; transform: none; }
 }
 
-.cardOver { border-color: rgba(255, 107, 107, 0.5); animation: rise 0.45s both, overPulse 2s ease-in-out infinite; }
+.cardOver { border-color: rgba(255, 107, 107, 0.5); animation: rise 0.45s backwards, overPulse 2s ease-in-out infinite; }
 
 @keyframes overPulse {
   50% { box-shadow: 0 0 0 1px rgba(255, 107, 107, 0.4), 0 20px 50px -20px rgba(255, 107, 107, 0.55); }
@@ -766,3 +763,18 @@
 @media (prefers-reduced-motion: reduce) {
   .card, .cardOver, .alert, .liveOn i, .drawer, .overlay { animation: none; }
 }
+
+/* ---------- FX: contenu au-dessus du spotlight ---------- */
+.card > *:not(:first-child), .kpi > *:not(:first-child) { position: relative; z-index: 1; }
+.kpiValue { display: flex; align-items: baseline; }
+.card:hover .avatar { transform: translateZ(24px) scale(1.06); }
+.avatar { transition: transform 0.25s, box-shadow 0.4s; }
+.chip:active, .saveBtn:active, .ghostBtn:active { transform: scale(0.97); }
+.drawer > * { animation: dIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.drawer > *:nth-child(2) { animation-delay: 0.05s; }
+.drawer > *:nth-child(3) { animation-delay: 0.1s; }
+.drawer > *:nth-child(4) { animation-delay: 0.15s; }
+.drawer > *:nth-child(5) { animation-delay: 0.2s; }
+.drawer > *:nth-child(6) { animation-delay: 0.25s; }
+.tItem { animation: dIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+@keyframes dIn { from { opacity: 0; transform: translateY(12px); } }
