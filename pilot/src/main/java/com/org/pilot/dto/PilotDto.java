@@ -19,4 +19,5 @@ public class PilotDto {
     private PilotStatus status;
     private LocalDateTime lastUpdated;
     private Long dailyPauseTime;
+    private Long secondsInStatus; // 7seb f serveur → walou mochkil dyal timezone
 }

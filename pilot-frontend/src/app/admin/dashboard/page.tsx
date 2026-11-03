@@ -1,348 +1,421 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '../composant/Sidebar/Sidebar';
-import Header from '../composant/Header/Header';
-import Card1 from './ui/Card/Card1';
 import { createWebSocketClient } from '../../services/websocketService';
 import styles from './page.module.css';
 import { ADMIN_TOKEN_KEY, api, ApiError, storage } from '../../lib/api';
+
+type Status = 'WORKING' | 'PAUSE_10MIN' | 'PAUSE_1H' | 'TOILET' | 'PRAYER' | 'FIN_SERVICE';
 
 interface Pilot {
   id: number;
   name: string;
   username?: string;
-  status: string;
+  status: Status;
   lastUpdated: string;
-  dailyPauseTime: number; 
+  dailyPauseTime: number;
+  secondsInStatus?: number;
+  receivedAt?: number; // client: wa9t fach wslat l'data
 }
 
 interface PilotLog {
   id: number;
-  status: string;
+  status: Status;
   startTime: string;
   endTime: string;
   durationSeconds: number;
 }
 
-export default function AdminDashboard() {
-  const [pilots, setPilots] = useState<Pilot[]>([]);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const router = useRouter();
+const META: Record<Status, { label: string; color: string; limit?: number }> = {
+  WORKING: { label: 'En service', color: '#34d399' },
+  PAUSE_10MIN: { label: 'Pause courte', color: '#fbbf24', limit: 10 },
+  PAUSE_1H: { label: 'Déjeuner', color: '#fb923c', limit: 60 },
+  TOILET: { label: 'Toilettes', color: '#60a5fa' },
+  PRAYER: { label: 'Prière', color: '#a78bfa' },
+  FIN_SERVICE: { label: 'Hors service', color: '#6b7280' },
+};
+const PAUSES: Status[] = ['PAUSE_10MIN', 'PAUSE_1H', 'TOILET', 'PRAYER'];
+const FILTERS: (Status | 'ALL' | 'PAUSE')[] = ['ALL', 'WORKING', 'PAUSE', ...PAUSES, 'FIN_SERVICE'];
 
-  const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
-  const [pilotLogs, setPilotLogs] = useState<PilotLog[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  
-  const [editForm, setEditForm] = useState({ name: '', username: '', password: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const pad = (n: number) => String(n).padStart(2, '0');
+const fmtClock = (s: number) => {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+};
+const fmtDur = (s: number) => {
+  if (!s) return '0 min';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}h ${pad(m)}` : m > 0 ? `${m} min` : `${s}s`;
+};
+const hhmm = (iso?: string) => (iso && iso.length >= 16 ? iso.slice(11, 16) : '--:--');
+const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+const stamp = (p: Pilot): Pilot => ({ ...p, receivedAt: Date.now() });
+
+export default function AdminDashboard() {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
+  const [pilots, setPilots] = useState<Pilot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('ALL');
+  const [query, setQuery] = useState('');
+
+  const [selected, setSelected] = useState<Pilot | null>(null);
+  const [logs, setLogs] = useState<PilotLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ name: '', username: '', password: '' });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const logout = useCallback(() => {
     storage.del(ADMIN_TOKEN_KEY);
     router.replace('/admin/login');
   }, [router]);
 
-  // Ila token tsala/ghalet → nrj3ou l login
   const handleAuthError = useCallback((err: unknown) => {
-    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-      logout();
-      return true;
-    }
+    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) { logout(); return true; }
     return false;
   }, [logout]);
 
+  // Auth
   useEffect(() => {
     const t = storage.get(ADMIN_TOKEN_KEY);
-    if (!t) {
-      router.replace('/admin/login');
-    } else {
-      setToken(t);
-      setIsAuthenticated(true);
-    }
+    if (!t) router.replace('/admin/login');
+    else setToken(t);
   }, [router]);
 
+  // Data initiale
   useEffect(() => {
-    if (!isAuthenticated || !token) return;
+    if (!token) return;
     api<Pilot[]>('/api/v1/pilots', { token })
-      .then((data) => setPilots(data))
-      .catch((err) => { if (!handleAuthError(err)) console.error(err); });
-  }, [isAuthenticated, token, handleAuthError]);
+      .then((data) => setPilots(data.map(stamp)))
+      .catch((err) => { if (!handleAuthError(err)) console.error(err); })
+      .finally(() => setLoading(false));
+  }, [token, handleAuthError]);
 
+  // Temps réel
   useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const client = createWebSocketClient((updatedPilot: Pilot) => {
-      setPilots((prev) => {
-        const exists = prev.find((p) => p.id === updatedPilot.id);
-        if (exists) {
-          return prev.map((p) => (p.id === updatedPilot.id ? updatedPilot : p));
-        }
-        return [...prev, updatedPilot];
-      });
+    if (!token) return;
+    const client = createWebSocketClient((updated: Pilot) => {
+      const p = stamp({ ...updated, secondsInStatus: updated.secondsInStatus ?? 0 });
+      setPilots((prev) => prev.some((x) => x.id === p.id) ? prev.map((x) => (x.id === p.id ? p : x)) : [...prev, p]);
+      setSelected((s) => (s && s.id === p.id ? p : s));
     });
-
+    const origConnect = client.onConnect;
+    client.onConnect = (frame) => { setLive(true); origConnect(frame); };
+    client.onWebSocketClose = () => setLive(false);
     client.activate();
     return () => { client.deactivate(); };
-  }, [isAuthenticated]);
+  }, [token]);
 
+  // Horloge
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
 
-  const openPilotDetails = async (pilot: Pilot) => {
-    setSelectedPilot(pilot);
-    setIsEditing(false); 
-    setEditForm({ name: pilot.name, username: '', password: '' });
-    setPilotLogs([]);
-    setIsModalOpen(true);
+  const elapsedOf = useCallback((p: Pilot) =>
+    (p.secondsInStatus ?? 0) + Math.floor((now - (p.receivedAt ?? now)) / 1000), [now]);
+  const isOver = useCallback((p: Pilot) => {
+    const lim = META[p.status]?.limit;
+    return !!lim && elapsedOf(p) > lim * 60;
+  }, [elapsedOf]);
 
+  // KPIs
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    pilots.forEach((p) => { c[p.status] = (c[p.status] || 0) + 1; });
+    const pause = PAUSES.reduce((a, s) => a + (c[s] || 0), 0);
+    return { ...c, PAUSE: pause, ALL: pilots.length } as Record<string, number>;
+  }, [pilots]);
+  const overCount = pilots.filter(isOver).length;
+  const active = pilots.length - (counts.FIN_SERVICE || 0);
+
+  // Filtre + tri (dépassement → pause → service → hors ligne)
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const rank = (p: Pilot) => (isOver(p) ? 0 : PAUSES.includes(p.status) ? 1 : p.status === 'WORKING' ? 2 : 3);
+    return pilots
+      .filter((p) => filter === 'ALL' || (filter === 'PAUSE' ? PAUSES.includes(p.status) : p.status === filter))
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.username || '').includes(q))
+      .sort((a, b) => rank(a) - rank(b) || elapsedOf(b) - elapsedOf(a));
+  }, [pilots, filter, query, isOver, elapsedOf]);
+
+  // Détails
+  const openPilot = async (p: Pilot) => {
+    setSelected(p);
+    setEditing(false);
+    setConfirmDelete(false);
+    setFormError('');
+    setForm({ name: p.name, username: '', password: '' });
+    setLogs([]);
+    setLogsLoading(true);
     try {
-      const data = await api<PilotLog[]>(`/api/v1/pilots/${pilot.id}/logs`, { token });
-      setPilotLogs(data);
+      setLogs(await api<PilotLog[]>(`/api/v1/pilots/${p.id}/logs`, { token }));
     } catch (err) {
       if (!handleAuthError(err)) console.error(err);
-    }
-  };
-
-  const handleUpdatePilot = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPilot) return;
-    setIsSubmitting(true);
-
-    try {
-      const updatedPilot = await api<Pilot>(`/api/v1/pilots/${selectedPilot.id}`, {
-        method: 'PUT',
-        token,
-        body: JSON.stringify(editForm),
-      });
-      setPilots((prev) => prev.map((p) => (p.id === updatedPilot.id ? updatedPilot : p)));
-      setSelectedPilot(updatedPilot);
-      setIsEditing(false);
-      alert('Pilote mis à jour avec succès !');
-    } catch (err) {
-      if (!handleAuthError(err)) alert(err instanceof ApiError ? err.message : 'Erreur réseau.');
     } finally {
-      setIsSubmitting(false);
+      setLogsLoading(false);
     }
   };
 
-  const handleDeletePilot = async () => {
-    if (!selectedPilot) return;
-    
-    const confirmDelete = window.confirm(`Are you sure you want to permanently delete ${selectedPilot.name}? This action cannot be undone.`);
-    if (!confirmDelete) return;
-
+  const savePilot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selected) return;
+    setSaving(true);
+    setFormError('');
     try {
-      await api(`/api/v1/pilots/${selectedPilot.id}`, { method: 'DELETE', token });
-      setPilots((prev) => prev.filter((p) => p.id !== selectedPilot.id));
-      setIsModalOpen(false);
+      const up = stamp(await api<Pilot>(`/api/v1/pilots/${selected.id}`, { method: 'PUT', token, body: JSON.stringify(form) }));
+      setPilots((prev) => prev.map((x) => (x.id === up.id ? up : x)));
+      setSelected(up);
+      setEditing(false);
     } catch (err) {
-      if (!handleAuthError(err)) alert('Erreur lors de la suppression.');
+      if (!handleAuthError(err)) setFormError(err instanceof ApiError ? err.message : 'Erreur réseau.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    if (!seconds) return '0s';
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    if (m > 0) return `${m}min ${s}s`;
-    return `${s}s`;
+  const deletePilot = async () => {
+    if (!selected) return;
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    try {
+      await api(`/api/v1/pilots/${selected.id}`, { method: 'DELETE', token });
+      setPilots((prev) => prev.filter((x) => x.id !== selected.id));
+      setSelected(null);
+    } catch (err) {
+      if (!handleAuthError(err)) setFormError('Erreur lors de la suppression.');
+    }
   };
 
-  const getStats = () => {
-    let toiletCount = 0, toiletTime = 0;
-    let shortCount = 0, shortTime = 0;
-    let longCount = 0, longTime = 0;
-    let prayerCount = 0, prayerTime = 0;
+  // Stats dyal pilote
+  const pilotStats = useMemo(() => PAUSES.map((s) => {
+    const items = logs.filter((l) => l.status === s);
+    return { s, count: items.length, total: items.reduce((a, l) => a + (l.durationSeconds || 0), 0) };
+  }), [logs]);
 
-    pilotLogs.forEach(log => {
-      if(log.status === 'TOILET') { toiletCount++; toiletTime += log.durationSeconds; }
-      if(log.status === 'PAUSE_10MIN') { shortCount++; shortTime += log.durationSeconds; }
-      if(log.status === 'PAUSE_1H') { longCount++; longTime += log.durationSeconds; }
-      if(log.status === 'PRAYER') { prayerCount++; prayerTime += log.durationSeconds; }
-    });
+  if (!token) return null;
 
-    return { toiletCount, toiletTime, shortCount, shortTime, longCount, longTime, prayerCount, prayerTime };
-  };
-
-  if (!isAuthenticated) return null;
-
-  const total = pilots.length;
-  const working = pilots.filter(p => p.status === 'WORKING').length;
-  const paused = total - working;
-  const stats = getStats();
+  const clock = new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const today = new Date(now).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const segs: Status[] = ['WORKING', ...PAUSES, 'FIN_SERVICE'];
 
   return (
-    <div className={styles.layout}>
-      <div className={styles.autoBlob}></div>
-      <div 
-        className={styles.mouseBlob} 
-        style={{ transform: `translate(${mousePosition.x - 300}px, ${mousePosition.y - 300}px)` }}
-      ></div>
-      <div className={styles.glassOverlay}></div>
+    <div className={styles.page}>
+      <div className={styles.bgGlow} aria-hidden />
 
-      <button
-        onClick={logout}
-        style={{
-          position: 'fixed', top: 18, right: 22, zIndex: 50, padding: '9px 16px', borderRadius: 10,
-          border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)',
-          color: '#0f172a', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-        }}
-      >
-        Déconnexion
-      </button>
+      {/* ---------- Topbar ---------- */}
+      <header className={styles.topbar}>
+        <div className={styles.logo}>
+          <span className={styles.logoMark}>P</span>PilotX<small>ADMIN</small>
+        </div>
+        <div className={styles.topRight}>
+          <span className={`${styles.livePill} ${live ? styles.liveOn : ''}`}><i />{live ? 'Live' : 'Connexion…'}</span>
+          <span className={styles.clock}>{clock}</span>
+          <button className={styles.ghostBtn} onClick={logout}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
+            <span>Déconnexion</span>
+          </button>
+        </div>
+      </header>
 
-      <div className={styles.contentWrapper}>
-        <Sidebar />
-        <main className={styles.mainContent}>
-          <div className={styles.dashboardContainer}>
-            <Header total={total} working={working} paused={paused} />
-            
-            <div className={styles.grid}>
-              {pilots.map((pilot) => (
-                <div 
-                  key={pilot.id} 
-                  className={styles.cardWrapper} 
-                  onClick={() => openPilotDetails(pilot)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <Card1
-                    name={pilot.name}
-                    status={pilot.status}
-                    lastUpdated={pilot.lastUpdated}
-                    dailyPauseTime={pilot.dailyPauseTime}
-                  />
-                </div>
-              ))}
-              {pilots.length === 0 && (
-                <div className={styles.emptyState}>
-                  <div className={styles.emptyGlow}></div>
-                  <p>No pilots registered yet. Awaiting signals...</p>
-                </div>
-              )}
+      <main className={styles.main}>
+        <div className={styles.titleRow}>
+          <div>
+            <p className={styles.date}>{today}</p>
+            <h1 className={styles.h1}>Tour de contrôle</h1>
+          </div>
+          {overCount > 0 && (
+            <div className={styles.alert}><span className={styles.alertDot} />{overCount} pilote{overCount > 1 ? 's' : ''} en dépassement de pause</div>
+          )}
+        </div>
+
+        {/* ---------- KPIs ---------- */}
+        <section className={styles.kpis}>
+          <div className={styles.kpi}>
+            <span className={styles.kpiLabel}>Pilotes actifs</span>
+            <strong className={styles.kpiValue}>{active}<small>/{pilots.length}</small></strong>
+            <div className={styles.segBar}>
+              {segs.map((s) => counts[s] ? (
+                <span key={s} title={`${META[s].label}: ${counts[s]}`} style={{ flex: counts[s], background: META[s].color }} />
+              ) : null)}
             </div>
           </div>
-        </main>
-      </div>
+          <div className={styles.kpi} style={{ ['--c' as string]: META.WORKING.color }}>
+            <span className={styles.kpiLabel}><i />En service</span>
+            <strong className={styles.kpiValue}>{counts.WORKING || 0}</strong>
+          </div>
+          <div className={styles.kpi} style={{ ['--c' as string]: '#fbbf24' }}>
+            <span className={styles.kpiLabel}><i />En pause</span>
+            <strong className={styles.kpiValue}>{counts.PAUSE || 0}</strong>
+          </div>
+          <div className={`${styles.kpi} ${overCount ? styles.kpiDanger : ''}`} style={{ ['--c' as string]: '#ff6b6b' }}>
+            <span className={styles.kpiLabel}><i />Dépassements</span>
+            <strong className={styles.kpiValue}>{overCount}</strong>
+          </div>
+        </section>
 
-      {isModalOpen && selectedPilot && (
-        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>✕</button>
-            
-            <div className={styles.modalHeader}>
+        {/* ---------- Toolbar ---------- */}
+        <section className={styles.toolbar}>
+          <div className={styles.filters}>
+            {FILTERS.map((f) => {
+              const label = f === 'ALL' ? 'Tous' : f === 'PAUSE' ? 'Toutes pauses' : META[f].label;
+              const color = f === 'ALL' ? '#d4ff3f' : f === 'PAUSE' ? '#fbbf24' : META[f].color;
+              return (
+                <button key={f} className={`${styles.chip} ${filter === f ? styles.chipOn : ''}`}
+                  style={{ ['--c' as string]: color }} onClick={() => setFilter(f)}>
+                  {f !== 'ALL' && <i />}{label}<b>{counts[f] || 0}</b>
+                </button>
+              );
+            })}
+          </div>
+          <label className={styles.search}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input placeholder="Rechercher un pilote…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </label>
+        </section>
+
+        {/* ---------- Grid ---------- */}
+        <section className={styles.grid}>
+          {loading && Array.from({ length: 6 }).map((_, i) => <div key={i} className={`${styles.card} ${styles.skeleton}`} />)}
+
+          {!loading && visible.map((p) => {
+            const m = META[p.status] || META.FIN_SERVICE;
+            const el = elapsedOf(p);
+            const over = isOver(p);
+            const off = p.status === 'FIN_SERVICE';
+            const pauseToday = (p.dailyPauseTime || 0) + (PAUSES.includes(p.status) ? el : 0);
+            const pct = m.limit ? Math.min(el / (m.limit * 60), 1) : 0;
+            return (
+              <button key={p.id} className={`${styles.card} ${over ? styles.cardOver : ''} ${off ? styles.cardOff : ''}`}
+                style={{ ['--c' as string]: over ? '#ff6b6b' : m.color }} onClick={() => openPilot(p)}>
+                <div className={styles.cardTop}>
+                  <span className={styles.avatar}>{initials(p.name)}</span>
+                  <div className={styles.who}>
+                    <strong>{p.name}</strong>
+                    <span>@{p.username}</span>
+                  </div>
+                  <span className={styles.pill}><i />{m.label}</span>
+                </div>
+
+                <div className={styles.timerRow}>
+                  <span className={styles.timer}>{off ? '—' : fmtClock(el)}</span>
+                  <span className={styles.timerSub}>{off ? `Déconnecté à ${hhmm(p.lastUpdated)}` : `depuis ${hhmm(p.lastUpdated)}`}</span>
+                </div>
+
+                <div className={styles.limitBar}>
+                  {m.limit ? <span style={{ width: `${pct * 100}%` }} /> : null}
+                </div>
+
+                <div className={styles.cardFoot}>
+                  <span>Pause aujourd&apos;hui</span>
+                  <b>{fmtDur(pauseToday)}</b>
+                  {over && <em>Dépassement</em>}
+                </div>
+              </button>
+            );
+          })}
+
+          {!loading && visible.length === 0 && (
+            <div className={styles.empty}>
+              <div className={styles.emptyRing} />
+              <p>{pilots.length === 0 ? 'Aucun pilote inscrit pour le moment.' : 'Aucun pilote ne correspond à ce filtre.'}</p>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* ---------- Drawer détails ---------- */}
+      {selected && (
+        <div className={styles.overlay} onClick={() => setSelected(null)}>
+          <aside className={styles.drawer} onClick={(e) => e.stopPropagation()}
+            style={{ ['--c' as string]: (META[selected.status] || META.FIN_SERVICE).color }}>
+            <button className={styles.close} onClick={() => setSelected(null)} aria-label="Fermer">✕</button>
+
+            <div className={styles.dHead}>
+              <span className={`${styles.avatar} ${styles.avatarLg}`}>{initials(selected.name)}</span>
               <div>
-                <h2 style={{ margin: 0 }}>
-                  {isEditing ? `Edit Pilot: ${selectedPilot.name}` : `Activity: ${selectedPilot.name}`}
-                </h2>
-                {selectedPilot.username && (
-                  <div style={{ fontSize: '0.85rem', color: '#a4b0be', marginTop: 4 }}>@{selectedPilot.username}</div>
-                )}
-              </div>
-              <div className={styles.actionButtons}>
-                {!isEditing ? (
-                  <>
-                    <button className={styles.editBtn} onClick={() => setIsEditing(true)}>Edit</button>
-                    <button className={styles.deleteBtn} onClick={handleDeletePilot}>Delete</button>
-                  </>
-                ) : (
-                  <button className={styles.cancelBtn} onClick={() => setIsEditing(false)}>Cancel</button>
-                )}
+                <h2>{selected.name}</h2>
+                <p>@{selected.username}</p>
               </div>
             </div>
 
-            {isEditing ? (
-              <form onSubmit={handleUpdatePilot} className={styles.editForm}>
-                <div className={styles.formGroup}>
-                  <label>Full Name</label>
-                  <input 
-                    type="text" 
-                    value={editForm.name} 
-                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                    placeholder="Enter new name"
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Nouvel identifiant (optionnel)</label>
-                  <input
-                    type="text"
-                    value={editForm.username}
-                    onChange={(e) => setEditForm({...editForm, username: e.target.value})}
-                    placeholder="Laisser vide pour garder l'actuel"
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>New Password (Optional)</label>
-                  <input 
-                    type="password" 
-                    value={editForm.password} 
-                    onChange={(e) => setEditForm({...editForm, password: e.target.value})}
-                    placeholder="Leave blank to keep current"
-                  />
-                </div>
-                <button type="submit" className={styles.saveBtn} disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
-                </button>
-              </form>
-            ) : (
+            <div className={styles.dStatus}>
+              <span className={styles.pill}><i />{(META[selected.status] || META.FIN_SERVICE).label}</span>
+              <span className={styles.dTimer}>{selected.status === 'FIN_SERVICE' ? '—' : fmtClock(elapsedOf(selected))}</span>
+            </div>
+
+            <div className={styles.dTabs}>
+              <button className={!editing ? styles.dTabOn : ''} onClick={() => setEditing(false)}>Activité</button>
+              <button className={editing ? styles.dTabOn : ''} onClick={() => { setEditing(true); setConfirmDelete(false); }}>Modifier</button>
+            </div>
+
+            {!editing ? (
               <>
-                <div className={styles.statsGrid}>
-                  <div className={styles.statBox}>
-                    <h4>Short Break</h4>
-                    <p>{stats.shortCount} times</p>
-                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.shortTime)} Total</p>
-                  </div>
-                  <div className={styles.statBox}>
-                    <h4>Long Break</h4>
-                    <p>{stats.longCount} times</p>
-                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.longTime)} Total</p>
-                  </div>
-                  <div className={styles.statBox}>
-                    <h4>Restroom</h4>
-                    <p>{stats.toiletCount} times</p>
-                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.toiletTime)} Total</p>
-                  </div>
-                  <div className={styles.statBox}>
-                    <h4>Prayer</h4>
-                    <p>{stats.prayerCount} times</p>
-                    <p style={{fontSize: '0.8rem', color: '#a4b0be'}}>{formatDuration(stats.prayerTime)} Total</p>
-                  </div>
+                <div className={styles.dStats}>
+                  {pilotStats.map(({ s, count, total }) => (
+                    <div key={s} className={styles.dStat} style={{ ['--c' as string]: META[s].color }}>
+                      <span><i />{META[s].label}</span>
+                      <strong>{fmtDur(total)}</strong>
+                      <small>{count} fois</small>
+                    </div>
+                  ))}
                 </div>
 
-                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px', marginTop: '20px' }}>
-                  Detailed History
-                </h3>
-                
-                <div className={styles.logsList}>
-                  {pilotLogs.length === 0 ? (
-                    <p style={{textAlign: 'center', color: '#a4b0be'}}>No activities recorded today.</p>
-                  ) : (
-                    pilotLogs.map((log) => (
-                      <div key={log.id} className={styles.logItem}>
-                        <div>
-                          <strong>{log.status.replace('_', ' ')}</strong>
-                          <div style={{fontSize: '0.8rem', color: '#a4b0be', marginTop: '4px'}}>
-                            {new Date(log.startTime).toLocaleTimeString()} - {new Date(log.endTime).toLocaleTimeString()}
-                          </div>
+                <h3 className={styles.dTitle}>Historique</h3>
+                <div className={styles.timeline}>
+                  {logsLoading && <p className={styles.muted}>Chargement…</p>}
+                  {!logsLoading && logs.length === 0 && <p className={styles.muted}>Aucune pause enregistrée.</p>}
+                  {logs.map((l) => {
+                    const lim = META[l.status]?.limit;
+                    return (
+                      <div key={l.id} className={styles.tItem} style={{ ['--c' as string]: META[l.status]?.color }}>
+                        <span className={styles.tDot} />
+                        <div className={styles.tBody}>
+                          <strong>{META[l.status]?.label || l.status}</strong>
+                          <span>{l.startTime.slice(0, 10).split('-').reverse().join('/')} · {hhmm(l.startTime)} → {hhmm(l.endTime)}</span>
                         </div>
-                        <div style={{fontWeight: 'bold', color: '#1dd1a1'}}>
-                          {formatDuration(log.durationSeconds)}
-                        </div>
+                        <b className={lim && l.durationSeconds > lim * 60 ? styles.overTxt : ''}>{fmtDur(l.durationSeconds)}</b>
                       </div>
-                    ))
-                  )}
+                    );
+                  })}
                 </div>
               </>
+            ) : (
+              <form className={styles.dForm} onSubmit={savePilot}>
+                {formError && <div className={styles.formError}>{formError}</div>}
+                <label>
+                  <span>Nom complet</span>
+                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </label>
+                <label>
+                  <span>Nouvel identifiant</span>
+                  <input placeholder={`Actuel : ${selected.username}`} value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase().replace(/\s/g, '') })} />
+                </label>
+                <label>
+                  <span>Nouveau mot de passe</span>
+                  <input type="password" placeholder="Laisser vide pour garder l'actuel" value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                </label>
+                <button type="submit" className={styles.saveBtn} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+
+                <div className={styles.danger}>
+                  <div>
+                    <strong>Supprimer ce pilote</strong>
+                    <span>Son historique sera supprimé définitivement.</span>
+                  </div>
+                  <button type="button" className={`${styles.deleteBtn} ${confirmDelete ? styles.deleteConfirm : ''}`} onClick={deletePilot}>
+                    {confirmDelete ? 'Confirmer' : 'Supprimer'}
+                  </button>
+                </div>
+              </form>
             )}
-          </div>
+          </aside>
         </div>
       )}
     </div>

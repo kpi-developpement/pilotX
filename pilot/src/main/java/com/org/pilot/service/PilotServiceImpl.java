@@ -214,6 +214,8 @@ public class PilotServiceImpl implements PilotService {
                 .status(pilot.getStatus())
                 .lastUpdated(pilot.getLastUpdated())
                 .dailyPauseTime(pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L)
+                .secondsInStatus(pilot.getLastUpdated() != null
+                        ? Math.max(0, Duration.between(pilot.getLastUpdated(), LocalDateTime.now()).getSeconds()) : 0L)
                 .build();
     }
 }
