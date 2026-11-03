@@ -1,69 +1,60 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import styles from './page.module.css';
-
-// ⚠️ THE FIX: URL dyal Serveur
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
+import AuthShell, { ErrorBox, Field, SubmitButton } from '../../components/AuthShell';
+import styles from '../../styles/auth.module.css';
+import { ADMIN_TOKEN_KEY, api, ApiError, storage } from '../../lib/api';
 
 export default function AdminLogin() {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (storage.get(ADMIN_TOKEN_KEY)) router.replace('/admin/dashboard');
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/login`, {
+      const data = await api<{ token: string }>('/api/v1/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('adminToken', data.token);
-        router.push('/admin/dashboard');
-      } else {
-        setError('Invalid admin credentials.');
-      }
+      storage.set(ADMIN_TOKEN_KEY, data.token);
+      router.push('/admin/dashboard');
     } catch (err) {
-      setError('Server unreachable.');
+      setError(err instanceof ApiError && err.status === 0 ? err.message : 'Identifiants administrateur invalides.');
+      setLoading(false);
     }
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.autoBlob}></div>
-      <div className={styles.glassOverlay}></div>
-      
-      <div className={styles.loginCard}>
-        <div className={styles.logoBox}>P</div>
-        <h2>Admin Portal</h2>
-        <p>Access the live monitoring network.</p>
-        
-        {error && <div className={styles.error}>{error}</div>}
+    <AuthShell
+      badge="ADMIN"
+      kicker="Supervision"
+      headline={<>Chaque pilote.<br /><em>En temps réel.</em></>}
+      lead="Accédez au tableau de bord : statuts en direct, temps de pause cumulé et historique détaillé de chaque pilote."
+    >
+      <h2 className={styles.title}>Espace superviseur</h2>
+      <p className={styles.subtitle}>Connexion réservée aux administrateurs.</p>
 
-        <form onSubmit={handleLogin} className={styles.form}>
-          <input 
-            type="text" 
-            placeholder="Username" 
-            required 
-            className={styles.input} 
-            onChange={(e) => setUsername(e.target.value)} 
-          />
-          <input 
-            type="password" 
-            placeholder="Password" 
-            required 
-            className={styles.input} 
-            onChange={(e) => setPassword(e.target.value)} 
-          />
-          <button type="submit" className={styles.btn}>Connect</button>
-        </form>
-      </div>
-    </div>
+      <form className={styles.form} onSubmit={handleLogin}>
+        <ErrorBox message={error} />
+        <Field label="Identifiant" icon="user" type="text" placeholder="admin" autoComplete="username"
+          required autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
+        <Field label="Mot de passe" icon="lock" type="password" placeholder="••••••••" autoComplete="current-password"
+          required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <SubmitButton loading={loading}>Accéder au dashboard</SubmitButton>
+      </form>
+
+      <Link href="/pilot/login" className={styles.adminLink}>← Espace pilote</Link>
+    </AuthShell>
   );
 }

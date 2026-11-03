@@ -11,9 +11,8 @@ public interface PilotService {
 
     List<PilotLogDto> getPilotLogs(Long pilotId);
 
-    PilotDto registerPilot(PilotRegisterRequest request);
-    PilotDto loginPilot(PilotLoginRequest request);
-    PilotDto webAuthnLogin(WebAuthnLoginRequest request); // Jdida
+    PilotAuthResponse registerPilot(PilotRegisterRequest request);
+    PilotAuthResponse loginPilot(PilotLoginRequest request);
 
     PilotDto updatePilot(Long id, PilotUpdateRequest request);
     void deletePilot(Long id);

@@ -1,8 +1,10 @@
 package com.org.pilot.security;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
@@ -35,7 +37,6 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        // Hna l'fix a brosky: kandozou userDetailsService direct f l'constructor
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
@@ -51,11 +52,18 @@ public class SecurityConfig {
         http.cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth ->
-                        auth.requestMatchers("/api/v1/auth/**").permitAll()
-                                .requestMatchers("/ws/**").permitAll() // WebSocket mftou7 7it Next.js khass yconnecta
-                                .requestMatchers("/api/v1/pilots/**").permitAll() // Les pilotes ybdlou status dyalhom bla login
-                                .anyRequest().authenticated() // L'ba9i (Admin) khassou JWT token
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((req, res, e) -> res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+                        .accessDeniedHandler((req, res, e) -> res.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden")))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/api/v1/auth/**").permitAll()          // Login admin
+                        .requestMatchers("/ws/**").permitAll()                   // WebSocket
+                        .requestMatchers(HttpMethod.POST, "/api/v1/pilots/register", "/api/v1/pilots/login").permitAll()
+                        .requestMatchers("/api/v1/pilots/me", "/api/v1/pilots/me/**").hasRole("PILOT")
+                        .requestMatchers("/api/v1/pilots/**").hasRole("ADMIN")   // Liste, logs, edit, delete
+                        .anyRequest().authenticated()
                 );
 
         http.authenticationProvider(authenticationProvider());

@@ -23,6 +23,11 @@ public class Pilot {
     @Column(nullable = false)
     private String name;
 
+    // Email = identifiant dyal login (nullable f DB bach les anciens pilotes mayt9el9ouch)
+    @Column(unique = true)
+    private String email;
+
+    // Kan5liwh 7it l'colonne deja kayna f DB (NOT NULL) — daba kat3mer b l'email
     @Column(unique = true, nullable = false)
     private String username;
 
@@ -44,8 +49,4 @@ public class Pilot {
 
     @Column(name = "last_active_date")
     private LocalDate lastActiveDate;
-
-    // 👆 L'ID dyal l'bessma (Windows Hello) f blast l'ADN Vocal
-    @Column(name = "webauthn_credential_id", columnDefinition = "TEXT")
-    private String webAuthnCredentialId;
 }

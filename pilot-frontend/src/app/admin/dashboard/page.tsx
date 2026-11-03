@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../composant/Sidebar/Sidebar';
 import Header from '../composant/Header/Header';
 import Card1 from './ui/Card/Card1';
 import { createWebSocketClient } from '../../services/websocketService';
 import styles from './page.module.css';
+import { ADMIN_TOKEN_KEY, api, ApiError, storage } from '../../lib/api';
 
 interface Pilot {
   id: number;
   name: string;
+  email?: string;
   status: string;
   lastUpdated: string;
   dailyPauseTime: number; 
@@ -35,29 +37,40 @@ export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  const [editForm, setEditForm] = useState({ name: '', username: '', password: '' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
-  // ⚠️ THE FIX: URL dyal Serveur
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.10.10.25:6225';
+  const logout = useCallback(() => {
+    storage.del(ADMIN_TOKEN_KEY);
+    router.replace('/admin/login');
+  }, [router]);
+
+  // Ila token tsala/ghalet → nrj3ou l login
+  const handleAuthError = useCallback((err: unknown) => {
+    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+      logout();
+      return true;
+    }
+    return false;
+  }, [logout]);
 
   useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-      router.push('/admin/login');
+    const t = storage.get(ADMIN_TOKEN_KEY);
+    if (!t) {
+      router.replace('/admin/login');
     } else {
+      setToken(t);
       setIsAuthenticated(true);
     }
   }, [router]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    
-    fetch(`${API_URL}/api/v1/pilots`)
-      .then((res) => res.json())
+    if (!isAuthenticated || !token) return;
+    api<Pilot[]>('/api/v1/pilots', { token })
       .then((data) => setPilots(data))
-      .catch((err) => console.error(err));
-  }, [isAuthenticated]);
+      .catch((err) => { if (!handleAuthError(err)) console.error(err); });
+  }, [isAuthenticated, token, handleAuthError]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -87,17 +100,15 @@ export default function AdminDashboard() {
   const openPilotDetails = async (pilot: Pilot) => {
     setSelectedPilot(pilot);
     setIsEditing(false); 
-    setEditForm({ name: pilot.name, username: '', password: '' }); 
+    setEditForm({ name: pilot.name, email: pilot.email || '', password: '' });
+    setPilotLogs([]);
     setIsModalOpen(true);
-    
+
     try {
-      const res = await fetch(`${API_URL}/api/v1/pilots/${pilot.id}/logs`);
-      if (res.ok) {
-        const data = await res.json();
-        setPilotLogs(data);
-      }
+      const data = await api<PilotLog[]>(`/api/v1/pilots/${pilot.id}/logs`, { token });
+      setPilotLogs(data);
     } catch (err) {
-      console.error(err);
+      if (!handleAuthError(err)) console.error(err);
     }
   };
 
@@ -107,25 +118,17 @@ export default function AdminDashboard() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/pilots/${selectedPilot.id}`, {
+      const updatedPilot = await api<Pilot>(`/api/v1/pilots/${selectedPilot.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(editForm),
       });
-
-      if (response.ok) {
-        const updatedPilot = await response.json();
-        setPilots((prev) => prev.map((p) => (p.id === updatedPilot.id ? updatedPilot : p)));
-        setSelectedPilot(updatedPilot);
-        setIsEditing(false);
-        alert('Pilot updated successfully!');
-      } else {
-        const errorText = await response.text();
-        alert(`Error updating pilot: ${errorText}`);
-      }
+      setPilots((prev) => prev.map((p) => (p.id === updatedPilot.id ? updatedPilot : p)));
+      setSelectedPilot(updatedPilot);
+      setIsEditing(false);
+      alert('Pilote mis à jour avec succès !');
     } catch (err) {
-      console.error(err);
-      alert('Network error while updating.');
+      if (!handleAuthError(err)) alert(err instanceof ApiError ? err.message : 'Erreur réseau.');
     } finally {
       setIsSubmitting(false);
     }
@@ -138,18 +141,11 @@ export default function AdminDashboard() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/pilots/${selectedPilot.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setPilots((prev) => prev.filter((p) => p.id !== selectedPilot.id));
-        setIsModalOpen(false);
-      } else {
-        alert('Error deleting pilot.');
-      }
+      await api(`/api/v1/pilots/${selectedPilot.id}`, { method: 'DELETE', token });
+      setPilots((prev) => prev.filter((p) => p.id !== selectedPilot.id));
+      setIsModalOpen(false);
     } catch (err) {
-      console.error(err);
+      if (!handleAuthError(err)) alert('Erreur lors de la suppression.');
     }
   };
 
@@ -193,6 +189,17 @@ export default function AdminDashboard() {
       ></div>
       <div className={styles.glassOverlay}></div>
 
+      <button
+        onClick={logout}
+        style={{
+          position: 'fixed', top: 18, right: 22, zIndex: 50, padding: '9px 16px', borderRadius: 10,
+          border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)',
+          color: '#0f172a', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+        }}
+      >
+        Déconnexion
+      </button>
+
       <div className={styles.contentWrapper}>
         <Sidebar />
         <main className={styles.mainContent}>
@@ -232,9 +239,14 @@ export default function AdminDashboard() {
             <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>✕</button>
             
             <div className={styles.modalHeader}>
-              <h2 style={{ margin: 0 }}>
-                {isEditing ? `Edit Pilot: ${selectedPilot.name}` : `Activity: ${selectedPilot.name}`}
-              </h2>
+              <div>
+                <h2 style={{ margin: 0 }}>
+                  {isEditing ? `Edit Pilot: ${selectedPilot.name}` : `Activity: ${selectedPilot.name}`}
+                </h2>
+                {selectedPilot.email && (
+                  <div style={{ fontSize: '0.85rem', color: '#a4b0be', marginTop: 4 }}>{selectedPilot.email}</div>
+                )}
+              </div>
               <div className={styles.actionButtons}>
                 {!isEditing ? (
                   <>
@@ -259,12 +271,12 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div className={styles.formGroup}>
-                  <label>New Username (Optional)</label>
-                  <input 
-                    type="text" 
-                    value={editForm.username} 
-                    onChange={(e) => setEditForm({...editForm, username: e.target.value})}
-                    placeholder="Leave blank to keep current"
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                    placeholder="prenom.nom@kyntus.fr"
                   />
                 </div>
                 <div className={styles.formGroup}>

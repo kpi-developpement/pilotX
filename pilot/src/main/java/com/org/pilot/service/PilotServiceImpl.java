@@ -7,6 +7,7 @@ import com.org.pilot.model.PilotStatus;
 import com.org.pilot.model.PilotStatusLog;
 import com.org.pilot.repository.PilotRepository;
 import com.org.pilot.repository.PilotStatusLogRepository;
+import com.org.pilot.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,16 +18,21 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class PilotServiceImpl implements PilotService {
 
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$");
+    private static final int MIN_PASSWORD = 6;
+
     private final PilotRepository pilotRepository;
     private final PilotStatusLogRepository logRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtils jwtUtils;
 
     @Override
     public List<PilotDto> getAllPilots() {
@@ -37,9 +43,7 @@ public class PilotServiceImpl implements PilotService {
 
     @Override
     public PilotDto getPilotById(Long id) {
-        Pilot pilot = pilotRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
-        return mapToDto(pilot);
+        return mapToDto(findPilot(id));
     }
 
     @Override
@@ -55,62 +59,68 @@ public class PilotServiceImpl implements PilotService {
                 .collect(Collectors.toList());
     }
 
+    // ==========================================
+    // 📝 INSCRIPTION (Email + Password)
+    // ==========================================
     @Override
     @Transactional
-    public PilotDto registerPilot(PilotRegisterRequest request) {
-        if(pilotRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already exists!");
+    public PilotAuthResponse registerPilot(PilotRegisterRequest request) {
+        String name = request.getName() == null ? "" : request.getName().trim();
+        String email = normalizeEmail(request.getEmail());
+        String password = request.getPassword() == null ? "" : request.getPassword();
+
+        if (name.isEmpty()) throw new IllegalArgumentException("Le nom est obligatoire.");
+        if (!EMAIL_PATTERN.matcher(email).matches()) throw new IllegalArgumentException("Adresse email invalide.");
+        if (password.length() < MIN_PASSWORD) throw new IllegalArgumentException("Le mot de passe doit contenir au moins " + MIN_PASSWORD + " caractères.");
+        if (pilotRepository.existsByEmailIgnoreCase(email) || pilotRepository.existsByUsername(email)) {
+            throw new IllegalArgumentException("Cet email est déjà utilisé.");
         }
 
         Pilot pilot = Pilot.builder()
-                .name(request.getName())
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .status(PilotStatus.WORKING)
+                .name(name)
+                .email(email)
+                .username(email)
+                .password(passwordEncoder.encode(password))
+                .status(PilotStatus.FIN_SERVICE) // Hors ligne 7ta ykhtar status
                 .lastUpdated(LocalDateTime.now())
                 .dailyPauseTime(0L)
                 .lastActiveDate(LocalDate.now())
-                .webAuthnCredentialId(request.getWebAuthnCredentialId()) // 👆 L'bessma
                 .build();
 
-        Pilot savedPilot = pilotRepository.save(pilot);
-        PilotDto savedPilotDto = mapToDto(savedPilot);
+        Pilot saved = pilotRepository.save(pilot);
+        PilotDto dto = mapToDto(saved);
+        messagingTemplate.convertAndSend("/topic/pilots", dto);
 
-        messagingTemplate.convertAndSend("/topic/pilots", savedPilotDto);
-
-        return savedPilotDto;
+        return new PilotAuthResponse(jwtUtils.generatePilotToken(saved.getId()), dto);
     }
 
+    // ==========================================
+    // 🔐 LOGIN (Email + Password)
+    // ==========================================
     @Override
-    public PilotDto loginPilot(PilotLoginRequest request) {
-        Pilot pilot = pilotRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found"));
+    public PilotAuthResponse loginPilot(PilotLoginRequest request) {
+        String login = normalizeEmail(request.getEmail());
 
-        if (!passwordEncoder.matches(request.getPassword(), pilot.getPassword())) {
-            throw new RuntimeException("Invalid password");
-        }
-        return mapToDto(pilot);
-    }
+        // Email awalan, w ila makanch n9elbou b l'username (anciens comptes)
+        Pilot pilot = pilotRepository.findByEmailIgnoreCase(login)
+                .or(() -> pilotRepository.findByUsername(request.getEmail() == null ? "" : request.getEmail().trim()))
+                .orElseThrow(() -> new SecurityException("Email ou mot de passe incorrect."));
 
-    // 🚀 NOUVEAU: Login b Windows Hello
-    @Override
-    public PilotDto webAuthnLogin(WebAuthnLoginRequest request) {
-        Pilot pilot = pilotRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found"));
-
-        if (pilot.getWebAuthnCredentialId() == null || !pilot.getWebAuthnCredentialId().equals(request.getCredentialId())) {
-            throw new RuntimeException("Biometric Authentication Failed: Fingerprint mismatch.");
+        if (request.getPassword() == null || !passwordEncoder.matches(request.getPassword(), pilot.getPassword())) {
+            throw new SecurityException("Email ou mot de passe incorrect.");
         }
 
-        return mapToDto(pilot);
+        return new PilotAuthResponse(jwtUtils.generatePilotToken(pilot.getId()), mapToDto(pilot));
     }
 
     @Override
     @Transactional
     public PilotDto updatePilotStatus(Long id, PilotStatusUpdateRequest request) {
-        Pilot pilot = pilotRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
+        Pilot pilot = findPilot(id);
+        PilotStatus newStatus = request.getStatus();
+        if (newStatus == null) throw new IllegalArgumentException("Status obligatoire.");
 
+        LocalDateTime now = LocalDateTime.now();
         LocalDate today = LocalDate.now();
         if (pilot.getLastActiveDate() == null || !pilot.getLastActiveDate().isEqual(today)) {
             pilot.setDailyPauseTime(0L);
@@ -119,81 +129,90 @@ public class PilotServiceImpl implements PilotService {
         }
 
         PilotStatus oldStatus = pilot.getStatus();
-        PilotStatus newStatus = request.getStatus();
+        if (oldStatus == newStatus) {
+            return mapToDto(pilot); // Nfs status, walou
+        }
 
-        if (oldStatus != PilotStatus.WORKING && oldStatus != null && pilot.getPauseStartTime() != null) {
-            long secondsPassed = Duration.between(pilot.getPauseStartTime(), LocalDateTime.now()).getSeconds();
+        // Ila kan f pause (machi WORKING w machi FIN_SERVICE) → n7esbou l'mouda w nsjlou log
+        boolean wasOnPause = oldStatus != null && oldStatus != PilotStatus.WORKING && oldStatus != PilotStatus.FIN_SERVICE;
+        if (wasOnPause && pilot.getPauseStartTime() != null) {
+            long secondsPassed = Duration.between(pilot.getPauseStartTime(), now).getSeconds();
             long currentTotal = pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L;
             pilot.setDailyPauseTime(currentTotal + secondsPassed);
 
-            PilotStatusLog log = PilotStatusLog.builder()
+            logRepository.save(PilotStatusLog.builder()
                     .pilot(pilot)
                     .status(oldStatus)
                     .startTime(pilot.getPauseStartTime())
-                    .endTime(LocalDateTime.now())
+                    .endTime(now)
                     .durationSeconds(secondsPassed)
-                    .build();
-            logRepository.save(log);
-
-            pilot.setPauseStartTime(null);
+                    .build());
         }
 
-        if (newStatus != PilotStatus.WORKING) {
-            pilot.setPauseStartTime(LocalDateTime.now());
-        }
-
+        boolean isPause = newStatus != PilotStatus.WORKING && newStatus != PilotStatus.FIN_SERVICE;
+        pilot.setPauseStartTime(isPause ? now : null);
         pilot.setStatus(newStatus);
-        pilot.setLastUpdated(LocalDateTime.now());
+        pilot.setLastUpdated(now);
 
-        Pilot updatedPilot = pilotRepository.save(pilot);
-        PilotDto updatedPilotDto = mapToDto(updatedPilot);
-
-        messagingTemplate.convertAndSend("/topic/pilots", updatedPilotDto);
-
-        return updatedPilotDto;
+        PilotDto dto = mapToDto(pilotRepository.save(pilot));
+        messagingTemplate.convertAndSend("/topic/pilots", dto);
+        return dto;
     }
 
     @Override
     @Transactional
     public PilotDto updatePilot(Long id, PilotUpdateRequest request) {
-        Pilot pilot = pilotRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
+        Pilot pilot = findPilot(id);
 
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
-            pilot.setName(request.getName());
+            pilot.setName(request.getName().trim());
         }
-        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
-            if (!pilot.getUsername().equals(request.getUsername()) && pilotRepository.existsByUsername(request.getUsername())) {
-                throw new RuntimeException("Username already exists!");
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            String email = normalizeEmail(request.getEmail());
+            String current = pilot.getEmail() != null ? pilot.getEmail() : pilot.getUsername();
+            if (!email.equalsIgnoreCase(current)) { // Ghir ila tbdel
+                if (!EMAIL_PATTERN.matcher(email).matches()) throw new IllegalArgumentException("Adresse email invalide.");
+                if (pilotRepository.existsByEmailIgnoreCase(email) || pilotRepository.existsByUsername(email)) {
+                    throw new IllegalArgumentException("Cet email est déjà utilisé.");
+                }
+                pilot.setEmail(email);
+                pilot.setUsername(email);
             }
-            pilot.setUsername(request.getUsername());
         }
-        if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            if (request.getPassword().length() < MIN_PASSWORD) {
+                throw new IllegalArgumentException("Le mot de passe doit contenir au moins " + MIN_PASSWORD + " caractères.");
+            }
             pilot.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
-        Pilot updatedPilot = pilotRepository.save(pilot);
-        PilotDto updatedPilotDto = mapToDto(updatedPilot);
-
-        messagingTemplate.convertAndSend("/topic/pilots", updatedPilotDto);
-
-        return updatedPilotDto;
+        PilotDto dto = mapToDto(pilotRepository.save(pilot));
+        messagingTemplate.convertAndSend("/topic/pilots", dto);
+        return dto;
     }
 
     @Override
     @Transactional
     public void deletePilot(Long id) {
-        Pilot pilot = pilotRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
-
+        Pilot pilot = findPilot(id);
         logRepository.deleteAll(logRepository.findByPilotIdOrderByStartTimeDesc(id));
         pilotRepository.delete(pilot);
+    }
+
+    private Pilot findPilot(Long id) {
+        return pilotRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Pilot not found with id: " + id));
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
     }
 
     private PilotDto mapToDto(Pilot pilot) {
         return PilotDto.builder()
                 .id(pilot.getId())
                 .name(pilot.getName())
+                .email(pilot.getEmail() != null ? pilot.getEmail() : pilot.getUsername())
                 .status(pilot.getStatus())
                 .lastUpdated(pilot.getLastUpdated())
                 .dailyPauseTime(pilot.getDailyPauseTime() != null ? pilot.getDailyPauseTime() : 0L)
